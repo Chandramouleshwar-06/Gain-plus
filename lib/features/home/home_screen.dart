@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
+import '../../models/workout_plan.dart';
 import '../progress/progress_provider.dart';
 import '../plans/plans_provider.dart';
 import '../workout/workout_provider.dart';
@@ -114,8 +115,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTodayWorkoutCard(BuildContext context) {
-    return Consumer3<PlansProvider, WorkoutProvider, ExerciseProvider>(
-      builder: (context, plansProvider, workoutProvider, exerciseProvider, child) {
+    return Consumer2<PlansProvider, WorkoutProvider>(
+      builder: (context, plansProvider, workoutProvider, child) {
         final plans = plansProvider.plans;
         if (plans.isEmpty) {
           return AppCard(
@@ -136,8 +137,71 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        final todayPlan = plans.first;
-        
+        if (workoutProvider.isWorkoutActive) {
+          return AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Workout in progress',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  workoutProvider.activePlanName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  text: 'Resume Workout',
+                  onPressed: () => MainScreen.of(context)?.setIndex(1),
+                  isLarge: true,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final todayPlan = plansProvider.planForDate(DateTime.now());
+
+        if (todayPlan == null) {
+          return AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Today's Workout",
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Nothing scheduled today',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Take a rest day, or pick a plan to train anyway.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  text: 'Choose a Workout',
+                  onPressed: () => _showPlanPicker(context, plans),
+                  isLarge: true,
+                ),
+              ],
+            ),
+          );
+        }
+
         return AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,26 +229,89 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
               PrimaryButton(
-                text: workoutProvider.isWorkoutActive ? 'Resume Workout' : 'Start Workout',
-                onPressed: () {
-                  if (!workoutProvider.isWorkoutActive) {
-                    final workoutExercises = todayPlan.exerciseIds.map((id) {
-                      final exercise = exerciseProvider.exercises.firstWhere((e) => e.id == id);
-                      return WorkoutExercise(
-                        exerciseId: id,
-                        name: exercise.name,
-                        sets: [WorkoutSet()],
-                      );
-                    }).toList();
-                    
-                    workoutProvider.startWorkout(todayPlan.name, workoutExercises);
-                  }
-                  
-                  // Switch to Workout Tab (Index 1)
-                  MainScreen.of(context)?.setIndex(1);
-                },
+                text: 'Start Workout',
+                onPressed: () => _startPlan(context, todayPlan),
                 isLarge: true,
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _startPlan(BuildContext context, WorkoutPlan plan) async {
+    final exerciseProvider = context.read<ExerciseProvider>();
+    final workoutProvider = context.read<WorkoutProvider>();
+    final mainScreen = MainScreen.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (exerciseProvider.exercises.isEmpty) {
+      await exerciseProvider.loadExercises();
+    }
+
+    // Skip any exercise IDs that no longer exist instead of crashing.
+    final workoutExercises = <WorkoutExercise>[];
+    for (final id in plan.exerciseIds) {
+      final exercise = exerciseProvider.exercises.where((e) => e.id == id).firstOrNull;
+      if (exercise == null) continue;
+      workoutExercises.add(WorkoutExercise(
+        exerciseId: id,
+        name: exercise.name,
+        sets: [WorkoutSet()],
+      ));
+    }
+
+    if (workoutExercises.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('${plan.name} has no exercises yet. Add some in Plans.')),
+      );
+      return;
+    }
+
+    workoutProvider.startWorkout(plan.name, workoutExercises);
+    mainScreen?.setIndex(1); // Workout tab
+  }
+
+  void _showPlanPicker(BuildContext context, List<WorkoutPlan> plans) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text('Choose a Workout', style: Theme.of(sheetContext).textTheme.titleLarge),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: plans.length,
+                  itemBuilder: (_, index) {
+                    final plan = plans[index];
+                    return ListTile(
+                      leading: const Icon(Icons.fitness_center, color: AppTheme.accentBlue),
+                      title: Text(plan.name, style: const TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: Text(
+                        '${plan.exerciseIds.length} exercises',
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _startPlan(context, plan);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         );

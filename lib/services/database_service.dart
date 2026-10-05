@@ -275,6 +275,28 @@ class DatabaseService {
     return await db.insert('set_entries', set.toMap());
   }
 
+  /// Saves a workout with its exercise and set entries in one transaction,
+  /// so a crash can't leave a half-saved workout behind.
+  Future<int> saveCompletedWorkout(Workout workout) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final workoutId = await txn.insert('workouts', workout.toMap());
+      for (final entry in workout.exercises) {
+        final entryId = await txn.insert(
+          'exercise_entries',
+          {...entry.toMap(), 'workoutId': workoutId},
+        );
+        for (final set in entry.sets) {
+          await txn.insert(
+            'set_entries',
+            {...set.toMap(), 'exerciseEntryId': entryId},
+          );
+        }
+      }
+      return workoutId;
+    });
+  }
+
   Future<List<Workout>> getWorkouts() async {
     final db = await database;
     final result = await db.query('workouts', orderBy: 'date DESC');

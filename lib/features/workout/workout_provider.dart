@@ -31,7 +31,10 @@ class WorkoutProvider extends ChangeNotifier {
   String activePlanName = '';
   List<WorkoutExercise> exercises = [];
   DateTime? startTime;
-  int elapsedTime = 0;
+  bool _isSaving = false;
+
+  int get completedSetCount =>
+      exercises.fold(0, (sum, e) => sum + e.sets.where((s) => s.completed).length);
 
   void startWorkout(String planName, List<WorkoutExercise> workoutExercises) {
     activePlanName = planName;
@@ -61,57 +64,61 @@ class WorkoutProvider extends ChangeNotifier {
     }
   }
 
+  /// Saves the workout (completed sets only) and ends it. Throws if saving
+  /// fails, in which case the workout stays active so nothing is lost.
   Future<void> finishWorkout() async {
-    if (!isWorkoutActive || startTime == null) return;
+    if (!isWorkoutActive || startTime == null || _isSaving) return;
 
     final duration = DateTime.now().difference(startTime!).inMinutes;
     double totalVolume = 0;
+    final entries = <ExerciseEntry>[];
 
     for (var exercise in exercises) {
-      for (var set in exercise.sets) {
-        if (set.completed) {
-          totalVolume += set.weight * set.reps;
-        }
+      final completedSets = exercise.sets.where((s) => s.completed).toList();
+      if (completedSets.isEmpty) continue;
+
+      for (var set in completedSets) {
+        totalVolume += set.weight * set.reps;
       }
+
+      entries.add(ExerciseEntry(
+        workoutId: 0, // assigned when saved
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.name,
+        sets: completedSets
+            .map((s) => SetEntry(
+                  exerciseEntryId: 0, // assigned when saved
+                  weight: s.weight,
+                  reps: s.reps,
+                  completed: true,
+                ))
+            .toList(),
+      ));
     }
 
     final workout = Workout(
       date: DateTime.now(),
       duration: duration,
-      exercises: [],
+      exercises: entries,
       totalVolume: totalVolume,
     );
 
-    final workoutId = await DatabaseService.instance.insertWorkout(workout);
-
-    for (var exercise in exercises) {
-      final entry = ExerciseEntry(
-        workoutId: workoutId,
-        exerciseId: exercise.exerciseId,
-        exerciseName: exercise.name,
-        sets: [],
-      );
-
-      final entryId = await DatabaseService.instance.insertExerciseEntry(entry);
-
-      for (var set in exercise.sets) {
-        if (set.completed) {
-          final setEntry = SetEntry(
-            exerciseEntryId: entryId,
-            weight: set.weight,
-            reps: set.reps,
-            completed: true,
-          );
-          await DatabaseService.instance.insertSetEntry(setEntry);
-        }
-      }
+    _isSaving = true;
+    try {
+      await DatabaseService.instance.saveCompletedWorkout(workout);
+      _reset();
+    } finally {
+      _isSaving = false;
     }
+  }
 
+  void discardWorkout() => _reset();
+
+  void _reset() {
     isWorkoutActive = false;
     activePlanName = '';
     exercises = [];
     startTime = null;
-    elapsedTime = 0;
     notifyListeners();
   }
 }

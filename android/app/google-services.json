@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "170093244597",
+    "project_id": "gainplus-9353f",
+    "storage_bucket": "gainplus-9353f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:170093244597:android:5016513adb24a9d116cefc",
+        "android_client_info": {
+          "package_name": "com.example.gym_tracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "170093244597-as6hmgvlho54hfd56jmausaonvokpboj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gym_tracker",
+            "certificate_hash": "9e966f005e4eeb72f74f25f2a52abb8a93a11013"
+          }
+        },
+        {
+          "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq4yTlWDgzxCZq9bPqyxo70B38GojVfkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:170093244597:android:412242b6cfebf29016cefc",
+        "android_client_info": {
+          "package_name": "com.tracker1.gainplus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq4yTlWDgzxCZq9bPqyxo70B38GojVfkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

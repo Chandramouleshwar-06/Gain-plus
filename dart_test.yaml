@@ -1,0 +1,2 @@
+# Database tests share one on-disk SQLite file, so run test files one at a time.
+concurrency: 1

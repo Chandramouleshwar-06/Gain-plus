@@ -22,7 +22,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -85,9 +85,13 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute(_createExerciseNameIndex);
     await _insertDefaultExercises(db);
     await _insertDefaultPlans(db);
   }
+
+  static const _createExerciseNameIndex =
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_name ON exercises (name)';
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
@@ -106,6 +110,59 @@ class DatabaseService {
     if (oldVersion < 4) {
       await _insertDefaultPlans(db);
     }
+    if (oldVersion < 5) {
+      // Earlier upgrades re-inserted the default exercises, creating duplicates.
+      await _mergeDuplicateExercises(db);
+      await db.execute(_createExerciseNameIndex);
+    }
+  }
+
+  /// Keeps the oldest exercise for each name and points workout history and
+  /// plans at it before deleting the duplicates.
+  Future _mergeDuplicateExercises(Database db) async {
+    final rows = await db.query('exercises', columns: ['id', 'name'], orderBy: 'id');
+    final keptIdByName = <String, int>{};
+    final replacement = <int, int>{}; // duplicate id -> kept id
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final keptId = keptIdByName.putIfAbsent(row['name'] as String, () => id);
+      if (keptId != id) replacement[id] = keptId;
+    }
+    if (replacement.isEmpty) return;
+
+    for (final entry in replacement.entries) {
+      await db.update(
+        'exercise_entries',
+        {'exerciseId': entry.value},
+        where: 'exerciseId = ?',
+        whereArgs: [entry.key],
+      );
+    }
+
+    final plans = await db.query('workout_plans');
+    for (final row in plans) {
+      final plan = WorkoutPlan.fromMap(row);
+      final mergedIds = <int>[];
+      for (final id in plan.exerciseIds) {
+        final newId = replacement[id] ?? id;
+        if (!mergedIds.contains(newId)) mergedIds.add(newId);
+      }
+      if (mergedIds.join(',') != plan.exerciseIds.join(',')) {
+        await db.update(
+          'workout_plans',
+          {'exerciseIds': mergedIds.join(',')},
+          where: 'id = ?',
+          whereArgs: [plan.id],
+        );
+      }
+    }
+
+    final duplicateIds = replacement.keys.toList();
+    await db.delete(
+      'exercises',
+      where: 'id IN (${List.filled(duplicateIds.length, '?').join(',')})',
+      whereArgs: duplicateIds,
+    );
   }
 
   Future _insertDefaultExercises(Database db) async {

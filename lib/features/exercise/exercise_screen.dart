@@ -217,19 +217,28 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               const SizedBox(height: 24),
               PrimaryButton(
                 text: 'Save Exercise',
-                onPressed: () {
-                  if (nameController.text.isNotEmpty && muscleController.text.isNotEmpty) {
-                    final exercise = Exercise(
-                      name: nameController.text,
-                      muscleGroup: muscleController.text,
-                      notes: notesController.text,
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  final muscleGroup = muscleController.text.trim();
+                  if (name.isEmpty || muscleGroup.isEmpty) return;
+
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final added = await context.read<ExerciseProvider>().addExercise(Exercise(
+                    name: name,
+                    muscleGroup: muscleGroup,
+                    notes: notesController.text.trim(),
+                  ));
+                  if (!added) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('"$name" already exists.')),
                     );
-                    context.read<ExerciseProvider>().addExercise(exercise);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Exercise added successfully!')),
-                    );
+                    return;
                   }
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Exercise added successfully!')),
+                  );
                 },
               ),
             ],

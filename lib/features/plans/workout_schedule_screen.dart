@@ -81,11 +81,7 @@ class _WorkoutScheduleScreenState extends State<WorkoutScheduleScreen> {
             Expanded(
               child: Consumer<PlansProvider>(
                 builder: (context, provider, child) {
-                  final dateStr = "${_selectedDay?.year}-${_selectedDay?.month}-${_selectedDay?.day}";
-                  final scheduledPlanId = provider.schedules[dateStr];
-                  final scheduledPlan = scheduledPlanId != null 
-                      ? provider.plans.where((p) => p.id == scheduledPlanId).firstOrNull 
-                      : null;
+                  final scheduledPlan = _selectedDay != null ? provider.planForDate(_selectedDay!) : null;
 
                   return ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 20),

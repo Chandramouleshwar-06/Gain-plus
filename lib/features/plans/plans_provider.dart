@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/workout_plan.dart';
 import '../../services/database_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/date_keys.dart';
 
 class PlansProvider extends ChangeNotifier {
   List<WorkoutPlan> plans = [];
@@ -25,16 +26,24 @@ class PlansProvider extends ChangeNotifier {
     await loadPlans();
   }
 
+  /// The plan scheduled for [date], if any.
+  WorkoutPlan? planForDate(DateTime date) {
+    final planId = schedules[scheduleDateKey(date)];
+    if (planId == null) return null;
+    return plans.where((p) => p.id == planId).firstOrNull;
+  }
+
   Future<void> scheduleWorkout(DateTime date, int planId, TimeOfDay time, {int repeatWeeks = 1}) async {
     final plan = plans.firstWhere((p) => p.id == planId);
-    
+
     for (int i = 0; i < repeatWeeks; i++) {
-      final scheduledDate = date.add(Duration(days: 7 * i));
-      final dateStr = "${scheduledDate.year}-${scheduledDate.month}-${scheduledDate.day}";
-      
+      // DateTime constructor (not add) so a DST change can't shift the day.
+      final scheduledDate = DateTime(date.year, date.month, date.day + 7 * i);
+      final dateStr = scheduleDateKey(scheduledDate);
+
       await DatabaseService.instance.deleteSchedule(dateStr);
       await DatabaseService.instance.insertSchedule(dateStr, planId);
-      
+
       final scheduledDateTime = DateTime(
         scheduledDate.year,
         scheduledDate.month,
@@ -43,14 +52,19 @@ class PlansProvider extends ChangeNotifier {
         time.minute,
       );
 
-      // Unique ID for notification
-      final notificationId = scheduledDate.year * 10000 + scheduledDate.month * 100 + scheduledDate.day;
-      
-      await NotificationService.instance.scheduleWorkoutReminder(
-        notificationId,
-        plan.name,
-        scheduledDateTime,
-      );
+      final notificationId = reminderIdForDate(scheduledDate);
+
+      // A failed or past-dated reminder shouldn't stop the remaining weeks from saving.
+      try {
+        await NotificationService.instance.cancelReminder(notificationId);
+        await NotificationService.instance.scheduleWorkoutReminder(
+          notificationId,
+          plan.name,
+          scheduledDateTime,
+        );
+      } catch (e) {
+        debugPrint('Failed to schedule reminder for $dateStr: $e');
+      }
     }
 
     await loadPlans();

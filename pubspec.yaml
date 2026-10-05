@@ -22,6 +22,8 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.0
   share_plus: ^10.1.0
+  flutter_timezone: ^5.1.1
+  firebase_core: ^4.15.0
 
 dev_dependencies:
   flutter_test:

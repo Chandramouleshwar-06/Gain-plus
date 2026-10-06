@@ -1,105 +1,96 @@
 class Workout {
-  final int? id;
-  final DateTime date;
-  final int duration;
-  final List<ExerciseEntry> exercises;
+  final String id;
+  final String? planId;
+  final String name;
+  final DateTime startedAt;
+  final int durationSeconds;
   final double totalVolume;
+  final List<ExerciseEntry> exercises;
 
   Workout({
-    this.id,
-    required this.date,
-    required this.duration,
-    required this.exercises,
+    required this.id,
+    this.planId,
+    required this.name,
+    required this.startedAt,
+    required this.durationSeconds,
     required this.totalVolume,
+    this.exercises = const [],
   });
 
-  Map<String, dynamic> toMap() {
+  int get durationMinutes => durationSeconds ~/ 60;
+
+  Map<String, Object?> toMap() {
     return {
       'id': id,
-      'date': date.toIso8601String(),
-      'duration': duration,
+      'planId': planId,
+      'name': name,
+      'startedAt': startedAt.millisecondsSinceEpoch,
+      'durationSeconds': durationSeconds,
       'totalVolume': totalVolume,
     };
   }
 
-  factory Workout.fromMap(Map<String, dynamic> map) {
+  factory Workout.fromMap(Map<String, Object?> map, [List<ExerciseEntry> exercises = const []]) {
     return Workout(
-      id: map['id'],
-      date: DateTime.parse(map['date']),
-      duration: map['duration'],
-      exercises: [],
-      totalVolume: map['totalVolume'],
+      id: map['id'] as String,
+      planId: map['planId'] as String?,
+      name: map['name'] as String,
+      startedAt: DateTime.fromMillisecondsSinceEpoch(map['startedAt'] as int),
+      durationSeconds: map['durationSeconds'] as int,
+      totalVolume: (map['totalVolume'] as num).toDouble(),
+      exercises: exercises,
     );
   }
 }
 
+/// One exercise done in a workout. Keeps the exercise name as it was at the
+/// time, so history still reads correctly if the exercise is renamed later.
 class ExerciseEntry {
-  final int? id;
-  final int workoutId;
-  final int exerciseId;
+  final String id;
+  final String exerciseId;
   final String exerciseName;
+  final int position;
   final List<SetEntry> sets;
 
   ExerciseEntry({
-    this.id,
-    required this.workoutId,
+    required this.id,
     required this.exerciseId,
     required this.exerciseName,
+    required this.position,
     required this.sets,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'workoutId': workoutId,
-      'exerciseId': exerciseId,
-      'exerciseName': exerciseName,
-    };
-  }
-
-  factory ExerciseEntry.fromMap(Map<String, dynamic> map) {
+  factory ExerciseEntry.fromMap(Map<String, Object?> map, List<SetEntry> sets) {
     return ExerciseEntry(
-      id: map['id'],
-      workoutId: map['workoutId'],
-      exerciseId: map['exerciseId'],
-      exerciseName: map['exerciseName'],
-      sets: [],
+      id: map['id'] as String,
+      exerciseId: map['exerciseId'] as String,
+      exerciseName: map['exerciseName'] as String,
+      position: map['position'] as int,
+      sets: sets,
     );
   }
 }
 
+/// A completed set. Only completed sets are saved.
 class SetEntry {
-  final int? id;
-  final int exerciseEntryId;
+  final String id;
+  final int position;
   final double weight;
   final int reps;
-  final bool completed;
 
   SetEntry({
-    this.id,
-    required this.exerciseEntryId,
+    required this.id,
+    required this.position,
     required this.weight,
     required this.reps,
-    required this.completed,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'exerciseEntryId': exerciseEntryId,
-      'weight': weight,
-      'reps': reps,
-      'completed': completed ? 1 : 0,
-    };
-  }
-
-  factory SetEntry.fromMap(Map<String, dynamic> map) {
+  factory SetEntry.fromMap(Map<String, Object?> map) {
     return SetEntry(
-      id: map['id'],
-      exerciseEntryId: map['exerciseEntryId'],
-      weight: map['weight'],
-      reps: map['reps'],
-      completed: map['completed'] == 1,
+      id: map['id'] as String,
+      position: map['position'] as int,
+      weight: (map['weight'] as num).toDouble(),
+      reps: map['reps'] as int,
     );
   }
 }

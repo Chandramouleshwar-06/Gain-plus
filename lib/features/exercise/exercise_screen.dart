@@ -224,11 +224,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
                   final navigator = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
-                  final added = await context.read<ExerciseProvider>().addExercise(Exercise(
+                  final added = await context.read<ExerciseProvider>().addExercise(
                     name: name,
                     muscleGroup: muscleGroup,
                     notes: notesController.text.trim(),
-                  ));
+                  );
                   if (!added) {
                     messenger.showSnackBar(
                       SnackBar(content: Text('"$name" already exists.')),

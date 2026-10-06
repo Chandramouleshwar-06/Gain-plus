@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
+import '../../utils/format.dart';
 import '../progress/progress_provider.dart';
 import 'workout_provider.dart';
 
@@ -304,9 +305,7 @@ class _SetRowState extends State<_SetRow> {
     super.initState();
     final weight = widget.set.weight;
     _weightController = TextEditingController(
-      text: weight == 0
-          ? ''
-          : (weight == weight.roundToDouble() ? weight.toInt().toString() : weight.toString()),
+      text: weight == 0 ? '' : formatWeight(weight),
     );
     _repsController = TextEditingController(
       text: widget.set.reps == 0 ? '' : widget.set.reps.toString(),

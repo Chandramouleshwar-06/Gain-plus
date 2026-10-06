@@ -1,19 +1,32 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
-import '../models/workout.dart';
-import '../models/workout_plan.dart';
-import '../models/exercise.dart';
+import 'package:sqflite/sqflite.dart';
+import '../data/seed_data.dart';
+import '../data/sync_columns.dart';
+import '../utils/date_keys.dart';
 
+/// Opens the app database and owns its schema and migrations. Reads and
+/// writes go through the repositories in `lib/data/`.
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
+
+  static const fileName = 'gym_tracker.db';
+  static const schemaVersion = 6;
 
   DatabaseService._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('gym_tracker.db');
+    _database = await _initDB(fileName);
     return _database!;
+  }
+
+  /// Closes the database so the next access reopens it. For tests.
+  @visibleForTesting
+  Future<void> close() async {
+    await _database?.close();
+    _database = null;
   }
 
   Future<Database> _initDB(String filePath) async {
@@ -22,413 +35,382 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
-      onCreate: _createDB,
+      version: schemaVersion,
+      onCreate: (db, version) async {
+        await _createSchema(db);
+        await _seedBuiltins(db);
+      },
       onUpgrade: _upgradeDB,
     );
   }
 
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE workouts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        duration INTEGER NOT NULL,
-        totalVolume REAL NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE exercise_entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        workoutId INTEGER NOT NULL,
-        exerciseId INTEGER NOT NULL,
-        exerciseName TEXT NOT NULL,
-        FOREIGN KEY (workoutId) REFERENCES workouts (id)
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE set_entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exerciseEntryId INTEGER NOT NULL,
-        weight REAL NOT NULL,
-        reps INTEGER NOT NULL,
-        completed INTEGER NOT NULL,
-        FOREIGN KEY (exerciseEntryId) REFERENCES exercise_entries (id)
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE workout_plans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        exerciseIds TEXT NOT NULL
-      )
-    ''');
-
+  /// The v6 schema. Synced tables use UUID text IDs plus [syncColumnsSql].
+  /// There are no SQLite foreign keys: deletes are soft (they set
+  /// `deletedAt`), so the repositories delete child rows themselves.
+  Future<void> _createSchema(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE exercises (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         muscleGroup TEXT NOT NULL,
-        notes TEXT NOT NULL
+        notes TEXT NOT NULL DEFAULT '',
+        isCustom INTEGER NOT NULL DEFAULT 0,
+        $syncColumnsSql
       )
     ''');
+    await db.execute(
+        'CREATE UNIQUE INDEX idx_exercises_name ON exercises (name) WHERE deletedAt IS NULL');
+
+    await db.execute('''
+      CREATE TABLE plans (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE plan_exercises (
+        id TEXT PRIMARY KEY,
+        planId TEXT NOT NULL,
+        exerciseId TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        targetSets INTEGER NOT NULL DEFAULT 3,
+        targetReps INTEGER,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_plan_exercises_plan ON plan_exercises (planId)');
+
+    await db.execute('''
+      CREATE TABLE workouts (
+        id TEXT PRIMARY KEY,
+        planId TEXT,
+        name TEXT NOT NULL,
+        startedAt INTEGER NOT NULL,
+        durationSeconds INTEGER NOT NULL,
+        totalVolume REAL NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_workouts_started ON workouts (startedAt)');
+
+    await db.execute('''
+      CREATE TABLE workout_exercises (
+        id TEXT PRIMARY KEY,
+        workoutId TEXT NOT NULL,
+        exerciseId TEXT NOT NULL,
+        exerciseName TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_workout_exercises_workout ON workout_exercises (workoutId)');
+    await db.execute('CREATE INDEX idx_workout_exercises_exercise ON workout_exercises (exerciseId)');
+
+    await db.execute('''
+      CREATE TABLE workout_sets (
+        id TEXT PRIMARY KEY,
+        workoutExerciseId TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        weight REAL NOT NULL,
+        reps INTEGER NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_workout_sets_entry ON workout_sets (workoutExerciseId)');
 
     await db.execute('''
       CREATE TABLE schedules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         date TEXT NOT NULL,
-        planId INTEGER NOT NULL,
-        FOREIGN KEY (planId) REFERENCES workout_plans (id)
+        planId TEXT NOT NULL,
+        reminderMinutes INTEGER,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute(
+        'CREATE UNIQUE INDEX idx_schedules_date ON schedules (date) WHERE deletedAt IS NULL');
+
+    await db.execute('''
+      CREATE TABLE profile (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        units TEXT NOT NULL DEFAULT 'kg',
+        experience TEXT,
+        birthYear INTEGER,
+        heightCm REAL,
+        workoutsPerWeek INTEGER NOT NULL DEFAULT 3,
+        primaryGoal TEXT,
+        onboardedAt INTEGER,
+        $syncColumnsSql
       )
     ''');
 
-    await db.execute(_createExerciseNameIndex);
-    await _insertDefaultExercises(db);
-    await _insertDefaultPlans(db);
+    await db.execute('''
+      CREATE TABLE goals (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        exerciseId TEXT,
+        targetValue REAL NOT NULL,
+        startValue REAL,
+        deadline TEXT,
+        achievedAt INTEGER,
+        $syncColumnsSql
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE body_weights (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        weightKg REAL NOT NULL,
+        source TEXT NOT NULL DEFAULT 'manual',
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_body_weights_date ON body_weights (date)');
+
+    // Local only, never synced: the in-progress workout, so it survives the
+    // app being killed.
+    await db.execute('''
+      CREATE TABLE active_workout (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        data TEXT NOT NULL
+      )
+    ''');
   }
 
-  static const _createExerciseNameIndex =
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_name ON exercises (name)';
-
-  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE schedules (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          date TEXT NOT NULL,
-          planId INTEGER NOT NULL,
-          FOREIGN KEY (planId) REFERENCES workout_plans (id)
-        )
-      ''');
-    }
-    if (oldVersion < 3) {
-      await _insertDefaultExercises(db);
-    }
-    if (oldVersion < 4) {
-      await _insertDefaultPlans(db);
-    }
-    if (oldVersion < 5) {
-      // Earlier upgrades re-inserted the default exercises, creating duplicates.
-      await _mergeDuplicateExercises(db);
-      await db.execute(_createExerciseNameIndex);
-    }
-  }
-
-  /// Keeps the oldest exercise for each name and points workout history and
-  /// plans at it before deleting the duplicates.
-  Future _mergeDuplicateExercises(Database db) async {
-    final rows = await db.query('exercises', columns: ['id', 'name'], orderBy: 'id');
-    final keptIdByName = <String, int>{};
-    final replacement = <int, int>{}; // duplicate id -> kept id
-    for (final row in rows) {
-      final id = row['id'] as int;
-      final keptId = keptIdByName.putIfAbsent(row['name'] as String, () => id);
-      if (keptId != id) replacement[id] = keptId;
-    }
-    if (replacement.isEmpty) return;
-
-    for (final entry in replacement.entries) {
-      await db.update(
-        'exercise_entries',
-        {'exerciseId': entry.value},
-        where: 'exerciseId = ?',
-        whereArgs: [entry.key],
+  /// Inserts the built-in exercises and plans if they aren't there yet.
+  /// Seeded rows have updatedAt 0 and aren't dirty, so they never upload
+  /// unless the user edits them.
+  Future<void> _seedBuiltins(DatabaseExecutor db) async {
+    for (final e in seedExercises) {
+      await db.insert(
+        'exercises',
+        {
+          'id': e.id,
+          'name': e.name,
+          'muscleGroup': e.muscleGroup,
+          'notes': e.notes,
+          'isCustom': 0,
+          'updatedAt': 0,
+          'dirty': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
 
-    final plans = await db.query('workout_plans');
-    for (final row in plans) {
-      final plan = WorkoutPlan.fromMap(row);
-      final mergedIds = <int>[];
-      for (final id in plan.exerciseIds) {
-        final newId = replacement[id] ?? id;
-        if (!mergedIds.contains(newId)) mergedIds.add(newId);
+    for (final plan in seedPlans) {
+      final inserted = await db.insert(
+        'plans',
+        {'id': plan.id, 'name': plan.name, 'updatedAt': 0, 'dirty': 0},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      if (inserted == 0) continue; // already seeded; keep the user's edits
+
+      for (var i = 0; i < plan.exerciseNames.length; i++) {
+        final name = plan.exerciseNames[i];
+        await db.insert('plan_exercises', {
+          'id': '${plan.id}-$i',
+          'planId': plan.id,
+          'exerciseId': builtinExerciseId(name),
+          'position': i,
+          'targetSets': 3,
+          'targetReps': name == 'Plank' ? null : 10,
+          'updatedAt': 0,
+          'dirty': 0,
+        });
       }
-      if (mergedIds.join(',') != plan.exerciseIds.join(',')) {
-        await db.update(
-          'workout_plans',
-          {'exerciseIds': mergedIds.join(',')},
-          where: 'id = ?',
-          whereArgs: [plan.id],
-        );
-      }
-    }
-
-    final duplicateIds = replacement.keys.toList();
-    await db.delete(
-      'exercises',
-      where: 'id IN (${List.filled(duplicateIds.length, '?').join(',')})',
-      whereArgs: duplicateIds,
-    );
-  }
-
-  Future _insertDefaultExercises(Database db) async {
-    final exercises = [
-      // Chest
-      {'name': 'Bench Press (Barbell)', 'muscleGroup': 'Chest', 'notes': 'Middle chest'},
-      {'name': 'Incline Bench Press (Barbell)', 'muscleGroup': 'Chest', 'notes': 'Upper chest'},
-      {'name': 'Dumbbell Flys', 'muscleGroup': 'Chest', 'notes': 'Chest isolation'},
-      {'name': 'Push Ups', 'muscleGroup': 'Chest', 'notes': 'Bodyweight calisthenics'},
-      {'name': 'Chest Press (Machine)', 'muscleGroup': 'Chest', 'notes': 'Controlled movement'},
-      {'name': 'Diamond Push Ups', 'muscleGroup': 'Chest/Triceps', 'notes': 'Inner chest focused calisthenics'},
-      {'name': 'Dips (Chest Focus)', 'muscleGroup': 'Chest/Triceps', 'notes': 'Leaning forward calisthenics'},
-      
-      // Legs
-      {'name': 'Squat (Barbell)', 'muscleGroup': 'Legs', 'notes': 'Quads and Glutes'},
-      {'name': 'Leg Press', 'muscleGroup': 'Legs', 'notes': 'Machine quads'},
-      {'name': 'Leg Extension', 'muscleGroup': 'Legs', 'notes': 'Quad isolation'},
-      {'name': 'Leg Curl', 'muscleGroup': 'Legs', 'notes': 'Hamstrings'},
-      {'name': 'Lunges (Dumbbell)', 'muscleGroup': 'Legs', 'notes': 'Unilateral legs'},
-      {'name': 'Calf Raise', 'muscleGroup': 'Legs', 'notes': 'Calves'},
-      {'name': 'Pistol Squats', 'muscleGroup': 'Legs', 'notes': 'Advanced unilateral calisthenics'},
-      {'name': 'Bulgarian Split Squats', 'muscleGroup': 'Legs', 'notes': 'Quad focus'},
-      
-      // Back
-      {'name': 'Deadlift (Barbell)', 'muscleGroup': 'Back', 'notes': 'Posterior chain'},
-      {'name': 'Pull Up', 'muscleGroup': 'Back', 'notes': 'Width calisthenics'},
-      {'name': 'Chin Up', 'muscleGroup': 'Back/Biceps', 'notes': 'Bicep focus calisthenics'},
-      {'name': 'Lat Pulldown', 'muscleGroup': 'Back', 'notes': 'Width - Machine'},
-      {'name': 'Barbell Row', 'muscleGroup': 'Back', 'notes': 'Thickness'},
-      {'name': 'Seated Cable Row', 'muscleGroup': 'Back', 'notes': 'Middle back'},
-      {'name': 'Dumbbell Row', 'muscleGroup': 'Back', 'notes': 'Single arm back'},
-      {'name': 'Australian Pull Ups', 'muscleGroup': 'Back', 'notes': 'Inverted rows calisthenics'},
-      {'name': 'Muscle Up', 'muscleGroup': 'Back/Arms', 'notes': 'Explosive calisthenics'},
-      
-      // Shoulders
-      {'name': 'Overhead Press (Barbell)', 'muscleGroup': 'Shoulders', 'notes': 'Front/Side delts'},
-      {'name': 'Lateral Raise (Dumbbell)', 'muscleGroup': 'Shoulders', 'notes': 'Side delt isolation'},
-      {'name': 'Front Raise (Dumbbell)', 'muscleGroup': 'Shoulders', 'notes': 'Front delt isolation'},
-      {'name': 'Shoulder Press (Dumbbell)', 'muscleGroup': 'Shoulders', 'notes': 'Stability shoulders'},
-      {'name': 'Rear Delt Fly (Machine)', 'muscleGroup': 'Shoulders', 'notes': 'Rear delt isolation'},
-      {'name': 'Handstand Push Ups', 'muscleGroup': 'Shoulders', 'notes': 'Advanced shoulder calisthenics'},
-      {'name': 'Pike Push Ups', 'muscleGroup': 'Shoulders', 'notes': 'Shoulder focus calisthenics'},
-      
-      // Arms
-      {'name': 'Bicep Curl (Dumbbell)', 'muscleGroup': 'Biceps', 'notes': 'Biceps'},
-      {'name': 'Hammer Curl (Dumbbell)', 'muscleGroup': 'Biceps', 'notes': 'Brachialis/Forearms'},
-      {'name': 'Tricep Pushdown (Cable)', 'muscleGroup': 'Triceps', 'notes': 'Tricep isolation'},
-      {'name': 'Tricep Dip', 'muscleGroup': 'Triceps', 'notes': 'Parallel bar calisthenics'},
-      {'name': 'Preacher Curl', 'muscleGroup': 'Biceps', 'notes': 'Bicep isolation'},
-      {'name': 'Skull Crushers', 'muscleGroup': 'Triceps', 'notes': 'Tricep extension'},
-      
-      // Core & Full Body
-      {'name': 'Plank', 'muscleGroup': 'Core', 'notes': 'Stability'},
-      {'name': 'Crunches', 'muscleGroup': 'Core', 'notes': 'Abs'},
-      {'name': 'Leg Raise', 'muscleGroup': 'Core', 'notes': 'Lower abs calisthenics'},
-      {'name': 'L-Sit', 'muscleGroup': 'Core/Arms', 'notes': 'Isometric calisthenics'},
-      {'name': 'Burpees', 'muscleGroup': 'Full Body', 'notes': 'Conditioning calisthenics'},
-      {'name': 'Hollow Body Hold', 'muscleGroup': 'Core', 'notes': 'Core foundation'},
-    ];
-
-    for (var exercise in exercises) {
-      await db.insert('exercises', exercise, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
   }
 
-  Future _insertDefaultPlans(Database db) async {
-    // Get all exercises to map names to IDs
-    final List<Map<String, dynamic>> exercises = await db.query('exercises');
-    int getId(String name) => exercises.firstWhere((e) => e['name'] == name)['id'];
-
-    try {
-      final defaultPlans = [
-        {
-          'name': 'Push (Chest/Shoulders/Triceps)',
-          'exerciseIds': [
-            getId('Bench Press (Barbell)'),
-            getId('Overhead Press (Barbell)'),
-            getId('Incline Bench Press (Barbell)'),
-            getId('Lateral Raise (Dumbbell)'),
-            getId('Tricep Pushdown (Cable)'),
-            getId('Dips (Chest Focus)'),
-          ].join(',')
-        },
-        {
-          'name': 'Pull (Back/Biceps)',
-          'exerciseIds': [
-            getId('Deadlift (Barbell)'),
-            getId('Pull Up'),
-            getId('Barbell Row'),
-            getId('Seated Cable Row'),
-            getId('Bicep Curl (Dumbbell)'),
-            getId('Hammer Curl (Dumbbell)'),
-          ].join(',')
-        },
-        {
-          'name': 'Legs (Quads/Hams/Calves)',
-          'exerciseIds': [
-            getId('Squat (Barbell)'),
-            getId('Leg Press'),
-            getId('Leg Extension'),
-            getId('Leg Curl'),
-            getId('Bulgarian Split Squats'),
-            getId('Calf Raise'),
-          ].join(',')
-        },
-        {
-          'name': 'Calisthenics Basic',
-          'exerciseIds': [
-            getId('Push Ups'),
-            getId('Pull Up'),
-            getId('Dips (Chest Focus)'),
-            getId('Australian Pull Ups'),
-            getId('Pike Push Ups'),
-            getId('Leg Raise'),
-          ].join(',')
-        },
-        {
-          'name': 'Full Body (Basic)',
-          'exerciseIds': [
-            getId('Squat (Barbell)'),
-            getId('Bench Press (Barbell)'),
-            getId('Barbell Row'),
-            getId('Overhead Press (Barbell)'),
-            getId('Plank'),
-          ].join(',')
-        },
-      ];
-
-      for (var plan in defaultPlans) {
-        await db.insert('workout_plans', plan, conflictAlgorithm: ConflictAlgorithm.ignore);
-      }
-    } catch (e) {
-      // Error inserting default plans
-      rethrow;
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 6) {
+      await _migrateLegacy(db);
     }
   }
 
-  // Schedule methods
-  Future<int> insertSchedule(String date, int planId) async {
-    final db = await database;
-    return await db.insert('schedules', {'date': date, 'planId': planId});
-  }
+  /// Converts any pre-v6 database (integer IDs, comma-separated plan
+  /// exercises, unpadded schedule dates) to the v6 schema. Duplicate
+  /// exercises left by older upgrades are merged by name.
+  Future<void> _migrateLegacy(Database db) async {
+    Future<bool> tableExists(String name) async => (await db.rawQuery(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+          [name],
+        ))
+            .isNotEmpty;
 
-  Future<List<Map<String, dynamic>>> getSchedules() async {
-    final db = await database;
-    return await db.query('schedules');
-  }
+    // Tables whose names v6 reuses get moved out of the way first.
+    for (final table in ['exercises', 'workouts', 'schedules']) {
+      if (await tableExists(table)) {
+        await db.execute('ALTER TABLE $table RENAME TO legacy_$table');
+      }
+    }
+    // v5 created this index on the old exercises table; v6 reuses the name.
+    await db.execute('DROP INDEX IF EXISTS idx_exercises_name');
 
-  Future<void> deleteSchedule(String date) async {
-    final db = await database;
-    await db.delete('schedules', where: 'date = ?', whereArgs: [date]);
-  }
+    await _createSchema(db);
+    await _seedBuiltins(db);
 
-  // Original methods
-  Future<int> insertWorkout(Workout workout) async {
-    final db = await database;
-    return await db.insert('workouts', workout.toMap());
-  }
+    final now = nowMs();
+    final builtinIdByName = {for (final e in seedExercises) e.name: e.id};
 
-  Future<int> insertExerciseEntry(ExerciseEntry entry) async {
-    final db = await database;
-    return await db.insert('exercise_entries', entry.toMap());
-  }
+    // Exercises: built-ins map to their fixed IDs, everything else becomes a
+    // custom exercise. Same-name rows (the old duplicates) share one ID.
+    final exerciseIdMap = <int, String>{};
+    final exerciseIdByName = <String, String>{};
+    if (await tableExists('legacy_exercises')) {
+      for (final row in await db.query('legacy_exercises', orderBy: 'id')) {
+        final name = row['name'] as String;
+        var id = builtinIdByName[name] ?? exerciseIdByName[name];
+        if (id == null) {
+          id = newId();
+          await db.insert('exercises', {
+            'id': id,
+            'name': name,
+            'muscleGroup': row['muscleGroup'],
+            'notes': row['notes'] ?? '',
+            'isCustom': 1,
+            'updatedAt': now,
+            'dirty': 1,
+          });
+        }
+        exerciseIdByName[name] = id;
+        exerciseIdMap[row['id'] as int] = id;
+      }
+    }
 
-  Future<int> insertSetEntry(SetEntry set) async {
-    final db = await database;
-    return await db.insert('set_entries', set.toMap());
-  }
+    // Plans: a plan named like a built-in takes over that built-in's ID,
+    // with the user's exercise list replacing the seeded one.
+    final builtinPlanIdByName = {for (final p in seedPlans) p.name: p.id};
+    final planIdMap = <int, String>{};
+    if (await tableExists('workout_plans')) {
+      final claimed = <String>{};
+      for (final row in await db.query('workout_plans', orderBy: 'id')) {
+        final name = row['name'] as String;
+        final builtinId = builtinPlanIdByName[name];
+        final String planId;
+        if (builtinId != null && claimed.add(builtinId)) {
+          planId = builtinId;
+          await db.delete('plan_exercises', where: 'planId = ?', whereArgs: [planId]);
+          await db.update('plans', {'updatedAt': now, 'dirty': 1},
+              where: 'id = ?', whereArgs: [planId]);
+        } else {
+          planId = newId();
+          await db.insert('plans', {'id': planId, 'name': name, 'updatedAt': now, 'dirty': 1});
+        }
+        planIdMap[row['id'] as int] = planId;
 
-  /// Saves a workout with its exercise and set entries in one transaction,
-  /// so a crash can't leave a half-saved workout behind.
-  Future<int> saveCompletedWorkout(Workout workout) async {
-    final db = await database;
-    return db.transaction((txn) async {
-      final workoutId = await txn.insert('workouts', workout.toMap());
-      for (final entry in workout.exercises) {
-        final entryId = await txn.insert(
-          'exercise_entries',
-          {...entry.toMap(), 'workoutId': workoutId},
-        );
-        for (final set in entry.sets) {
-          await txn.insert(
-            'set_entries',
-            {...set.toMap(), 'exerciseEntryId': entryId},
-          );
+        final oldIds = (row['exerciseIds'] as String)
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .map(int.parse);
+        final newIds = <String>[];
+        for (final oldId in oldIds) {
+          final id = exerciseIdMap[oldId];
+          if (id != null && !newIds.contains(id)) newIds.add(id);
+        }
+        for (var i = 0; i < newIds.length; i++) {
+          await db.insert('plan_exercises', {
+            'id': newId(),
+            'planId': planId,
+            'exerciseId': newIds[i],
+            'position': i,
+            'targetSets': 3,
+            'targetReps': 10,
+            'updatedAt': now,
+            'dirty': 1,
+          });
         }
       }
-      return workoutId;
-    });
-  }
-
-  Future<List<Workout>> getWorkouts() async {
-    final db = await database;
-    final result = await db.query('workouts', orderBy: 'date DESC');
-    return result.map((map) => Workout.fromMap(map)).toList();
-  }
-
-  Future<List<ExerciseEntry>> getExerciseEntries(int workoutId) async {
-    final db = await database;
-    final result = await db.query(
-      'exercise_entries',
-      where: 'workoutId = ?',
-      whereArgs: [workoutId],
-    );
-    
-    List<ExerciseEntry> entries = [];
-    for (var map in result) {
-      final entry = ExerciseEntry.fromMap(map);
-      final sets = await getSetEntries(entry.id!);
-      entries.add(ExerciseEntry(
-        id: entry.id,
-        workoutId: entry.workoutId,
-        exerciseId: entry.exerciseId,
-        exerciseName: entry.exerciseName,
-        sets: sets,
-      ));
     }
-    return entries;
-  }
 
-  Future<List<SetEntry>> getSetEntries(int exerciseEntryId) async {
-    final db = await database;
-    final result = await db.query(
+    // Workouts with their exercises and completed sets. Old workouts stored
+    // the finish time and whole minutes, and no name.
+    if (await tableExists('legacy_workouts')) {
+      final hasEntries = await tableExists('exercise_entries');
+      final hasSets = await tableExists('set_entries');
+      for (final w in await db.query('legacy_workouts', orderBy: 'id')) {
+        final workoutId = newId();
+        final durationSeconds = (w['duration'] as int) * 60;
+        final finishedAt = DateTime.parse(w['date'] as String);
+        await db.insert('workouts', {
+          'id': workoutId,
+          'planId': null,
+          'name': 'Workout',
+          'startedAt': finishedAt.millisecondsSinceEpoch - durationSeconds * 1000,
+          'durationSeconds': durationSeconds,
+          'totalVolume': (w['totalVolume'] as num).toDouble(),
+          'updatedAt': now,
+          'dirty': 1,
+        });
+        if (!hasEntries) continue;
+
+        final entries = await db.query('exercise_entries',
+            where: 'workoutId = ?', whereArgs: [w['id']], orderBy: 'id');
+        for (var i = 0; i < entries.length; i++) {
+          final entry = entries[i];
+          final entryId = newId();
+          await db.insert('workout_exercises', {
+            'id': entryId,
+            'workoutId': workoutId,
+            'exerciseId': exerciseIdMap[entry['exerciseId']] ??
+                exerciseIdByName[entry['exerciseName']] ??
+                'missing-${entry['exerciseId']}',
+            'exerciseName': entry['exerciseName'],
+            'position': i,
+            'updatedAt': now,
+            'dirty': 1,
+          });
+          if (!hasSets) continue;
+
+          final sets = await db.query('set_entries',
+              where: 'exerciseEntryId = ? AND completed = 1',
+              whereArgs: [entry['id']],
+              orderBy: 'id');
+          for (var j = 0; j < sets.length; j++) {
+            await db.insert('workout_sets', {
+              'id': newId(),
+              'workoutExerciseId': entryId,
+              'position': j,
+              'weight': (sets[j]['weight'] as num).toDouble(),
+              'reps': sets[j]['reps'],
+              'updatedAt': now,
+              'dirty': 1,
+            });
+          }
+        }
+      }
+    }
+
+    // Schedules: pad the date keys and point at the new plan IDs.
+    if (await tableExists('legacy_schedules')) {
+      for (final s in await db.query('legacy_schedules', orderBy: 'id')) {
+        final planId = planIdMap[s['planId']];
+        if (planId == null) continue;
+        final date = dateKey(parseDateKey(s['date'] as String));
+        await db.delete('schedules', where: 'date = ?', whereArgs: [date]);
+        await db.insert('schedules', {
+          'id': newId(),
+          'date': date,
+          'planId': planId,
+          'updatedAt': now,
+          'dirty': 1,
+        });
+      }
+    }
+
+    for (final table in [
       'set_entries',
-      where: 'exerciseEntryId = ?',
-      whereArgs: [exerciseEntryId],
-    );
-    return result.map((map) => SetEntry.fromMap(map)).toList();
-  }
-
-  Future<int> insertWorkoutPlan(WorkoutPlan plan) async {
-    final db = await database;
-    return await db.insert('workout_plans', plan.toMap());
-  }
-
-  Future<int> updateWorkoutPlan(WorkoutPlan plan) async {
-    final db = await database;
-    return await db.update(
+      'exercise_entries',
+      'legacy_schedules',
       'workout_plans',
-      plan.toMap(),
-      where: 'id = ?',
-      whereArgs: [plan.id],
-    );
-  }
-
-  Future<List<WorkoutPlan>> getWorkoutPlans() async {
-    final db = await database;
-    final result = await db.query('workout_plans');
-    return result.map((map) => WorkoutPlan.fromMap(map)).toList();
-  }
-
-  Future<int> insertExercise(Exercise exercise) async {
-    final db = await database;
-    return await db.insert('exercises', exercise.toMap());
-  }
-
-  Future<List<Exercise>> getExercises() async {
-    final db = await database;
-    final result = await db.query('exercises');
-    return result.map((map) => Exercise.fromMap(map)).toList();
-  }
-
-  Future<Exercise?> getExercise(int id) async {
-    final db = await database;
-    final result = await db.query('exercises', where: 'id = ?', whereArgs: [id]);
-    if (result.isEmpty) return null;
-    return Exercise.fromMap(result.first);
+      'legacy_workouts',
+      'legacy_exercises',
+    ]) {
+      await db.execute('DROP TABLE IF EXISTS $table');
+    }
   }
 }

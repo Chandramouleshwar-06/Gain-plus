@@ -1,31 +1,35 @@
 class Exercise {
-  final int? id;
+  final String id;
   final String name;
   final String muscleGroup;
   final String notes;
+  final bool isCustom;
 
   Exercise({
-    this.id,
+    required this.id,
     required this.name,
     required this.muscleGroup,
     required this.notes,
+    this.isCustom = false,
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, Object?> toMap() {
     return {
       'id': id,
       'name': name,
       'muscleGroup': muscleGroup,
       'notes': notes,
+      'isCustom': isCustom ? 1 : 0,
     };
   }
 
-  factory Exercise.fromMap(Map<String, dynamic> map) {
+  factory Exercise.fromMap(Map<String, Object?> map) {
     return Exercise(
-      id: map['id'],
-      name: map['name'],
-      muscleGroup: map['muscleGroup'],
-      notes: map['notes'],
+      id: map['id'] as String,
+      name: map['name'] as String,
+      muscleGroup: map['muscleGroup'] as String,
+      notes: map['notes'] as String,
+      isCustom: map['isCustom'] == 1,
     );
   }
 }

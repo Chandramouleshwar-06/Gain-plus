@@ -24,6 +24,7 @@ dependencies:
   share_plus: ^10.1.0
   flutter_timezone: ^5.1.1
   firebase_core: ^4.15.0
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:

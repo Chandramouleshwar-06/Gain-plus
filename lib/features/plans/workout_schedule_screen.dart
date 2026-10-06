@@ -225,7 +225,7 @@ class _WorkoutScheduleScreenState extends State<WorkoutScheduleScreen> {
                                   if (time != null && mounted) {
                                     await provider.scheduleWorkout(
                                       date, 
-                                      plan.id!, 
+                                      plan.id, 
                                       time, 
                                       repeatWeeks: selectedWeeks
                                     );

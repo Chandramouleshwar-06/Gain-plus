@@ -252,13 +252,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Skip any exercise IDs that no longer exist instead of crashing.
     final workoutExercises = <WorkoutExercise>[];
-    for (final id in plan.exerciseIds) {
-      final exercise = exerciseProvider.exercises.where((e) => e.id == id).firstOrNull;
+    for (final item in plan.items) {
+      final exercise = exerciseProvider.exercises.where((e) => e.id == item.exerciseId).firstOrNull;
       if (exercise == null) continue;
       workoutExercises.add(WorkoutExercise(
-        exerciseId: id,
+        exerciseId: item.exerciseId,
         name: exercise.name,
-        sets: [WorkoutSet()],
+        sets: [for (var i = 0; i < item.targetSets; i++) WorkoutSet()],
       ));
     }
 
@@ -269,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    workoutProvider.startWorkout(plan.name, workoutExercises);
+    workoutProvider.startWorkout(plan.id, plan.name, workoutExercises);
     mainScreen?.setIndex(1); // Workout tab
   }
 
@@ -378,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${workout.date.day}/${workout.date.month}/${workout.date.year}',
+                            workout.name,
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -387,7 +387,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${workout.duration} min • ${workout.totalVolume.toStringAsFixed(0)} kg',
+                            '${workout.startedAt.day}/${workout.startedAt.month}/${workout.startedAt.year} • '
+                            '${workout.durationMinutes} min • ${workout.totalVolume.toStringAsFixed(0)} kg',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],

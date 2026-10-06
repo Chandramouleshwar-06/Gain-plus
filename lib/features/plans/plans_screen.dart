@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../exercise/exercise_provider.dart';
+import '../../models/exercise.dart';
 import 'plans_provider.dart';
 
 class PlansScreen extends StatefulWidget {
@@ -24,13 +25,13 @@ class _PlansScreenState extends State<PlansScreen> {
     });
   }
 
-  void _sharePlan(BuildContext context, int planId) {
+  void _sharePlan(BuildContext context, String planId) {
     final plansProvider = context.read<PlansProvider>();
     final exerciseProvider = context.read<ExerciseProvider>();
     
     final plan = plansProvider.plans.firstWhere((p) => p.id == planId);
-    final planExercises = exerciseProvider.exercises
-        .where((e) => plan.exerciseIds.contains(e.id))
+    final planExercises = plan.exerciseIds
+        .map(exerciseProvider.byId).whereType<Exercise>()
         .toList();
 
     String shareText = 'Check out my workout plan: ${plan.name}\n\n';
@@ -103,7 +104,7 @@ class _PlansScreenState extends State<PlansScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: AppCard(
-                          onTap: () => _showPlanDetails(context, plan.id!),
+                          onTap: () => _showPlanDetails(context, plan.id),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -133,7 +134,7 @@ class _PlansScreenState extends State<PlansScreen> {
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.share, size: 20, color: AppTheme.accentBlue),
-                                    onPressed: () => _sharePlan(context, plan.id!),
+                                    onPressed: () => _sharePlan(context, plan.id),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
                                   ),
@@ -154,7 +155,7 @@ class _PlansScreenState extends State<PlansScreen> {
     );
   }
 
-  void _showPlanDetails(BuildContext context, int planId) {
+  void _showPlanDetails(BuildContext context, String planId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -172,8 +173,8 @@ class _PlansScreenState extends State<PlansScreen> {
             return Consumer2<PlansProvider, ExerciseProvider>(
               builder: (context, plansProvider, exerciseProvider, child) {
                 final plan = plansProvider.plans.firstWhere((p) => p.id == planId);
-                final planExercises = exerciseProvider.exercises
-                    .where((e) => plan.exerciseIds.contains(e.id))
+                final planExercises = plan.exerciseIds
+                    .map(exerciseProvider.byId).whereType<Exercise>()
                     .toList();
 
                 return Column(
@@ -240,7 +241,7 @@ class _PlansScreenState extends State<PlansScreen> {
                                         IconButton(
                                           icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                                           onPressed: () {
-                                            plansProvider.removeExerciseFromPlan(planId, exercise.id!);
+                                            plansProvider.removeExerciseFromPlan(planId, exercise.id);
                                           },
                                         ),
                                       ],
@@ -260,7 +261,7 @@ class _PlansScreenState extends State<PlansScreen> {
     );
   }
 
-  void _showAddExerciseToPlanDialog(BuildContext context, int planId) {
+  void _showAddExerciseToPlanDialog(BuildContext context, String planId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -309,7 +310,7 @@ class _PlansScreenState extends State<PlansScreen> {
                                   subtitle: Text(exercise.muscleGroup, style: const TextStyle(color: AppTheme.textSecondary)),
                                   trailing: const Icon(Icons.add, color: AppTheme.accentBlue),
                                   onTap: () {
-                                    plansProvider.addExerciseToPlan(planId, exercise.id!);
+                                    plansProvider.addExerciseToPlan(planId, exercise.id);
                                     Navigator.pop(context);
                                   },
                                 );

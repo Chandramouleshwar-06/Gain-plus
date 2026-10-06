@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../utils/format.dart';
 import 'progress_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -175,7 +176,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${entry.value['weight']} kg × ${entry.value['reps']}',
+                                      '${formatWeight(entry.value.weight)} kg × ${entry.value.reps}',
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ],

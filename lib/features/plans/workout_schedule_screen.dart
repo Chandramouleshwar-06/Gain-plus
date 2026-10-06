@@ -179,21 +179,25 @@ class _WorkoutScheduleScreenState extends State<WorkoutScheduleScreen> {
                       Text('Schedule Workout', style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 20),
                       const Text('Repeat for how many weeks?', style: TextStyle(color: AppTheme.textSecondary)),
-                      Row(
-                        children: [
-                          ...[1, 2, 4, 8, 12].map((w) => Padding(
-                            padding: const EdgeInsets.only(right: 8, top: 8, bottom: 16),
-                            child: ChoiceChip(
-                              label: Text('$w weeks'),
-                              selected: selectedWeeks == w,
-                              onSelected: (selected) {
-                                if (selected) setModalState(() => selectedWeeks = w);
-                              },
-                              selectedColor: AppTheme.accentBlue,
-                              labelStyle: TextStyle(color: selectedWeeks == w ? Colors.white : AppTheme.textPrimary),
-                            ),
-                          )),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 16),
+                        // Wrap, not Row: five chips are wider than a phone screen.
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final w in [1, 2, 4, 8, 12])
+                              ChoiceChip(
+                                label: Text(w == 1 ? '1 week' : '$w weeks'),
+                                selected: selectedWeeks == w,
+                                onSelected: (selected) {
+                                  if (selected) setModalState(() => selectedWeeks = w);
+                                },
+                                selectedColor: AppTheme.accentBlue,
+                                labelStyle: TextStyle(color: selectedWeeks == w ? Colors.white : AppTheme.textPrimary),
+                              ),
+                          ],
+                        ),
                       ),
                       const Text('Select Workout Plan:', style: TextStyle(color: AppTheme.textSecondary)),
                       const SizedBox(height: 8),

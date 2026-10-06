@@ -110,12 +110,14 @@ class _PlansScreenState extends State<PlansScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    plan.name,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimary,
+                                  Expanded(
+                                    child: Text(
+                                      plan.name,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
                                     ),
                                   ),
                                   const Icon(Icons.chevron_right, color: AppTheme.textSecondary),

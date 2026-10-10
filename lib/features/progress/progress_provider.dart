@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/workout_repository.dart';
 import '../../models/workout.dart';
 import '../../utils/strength.dart';
+import 'insights.dart';
 
 class LiftSummary {
   final String exerciseId;
@@ -27,6 +28,11 @@ class ProgressProvider extends ChangeNotifier {
 
   /// Heaviest set per exercise name (ties broken by reps).
   Map<String, PersonalRecord> personalRecords = {};
+
+  bool loaded = false;
+  WeekSummary? thisWeek;
+  WeekSummary? lastWeek;
+  int longestStreakDays = 0;
 
   /// Per-exercise bests, strongest first.
   List<LiftSummary> lifts = [];
@@ -62,8 +68,18 @@ class ProgressProvider extends ChangeNotifier {
     workoutDates = dates;
     workoutDays = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
     streak = calculateStreak(dates, DateTime.now());
-    weeklyVolume = calculateWeeklyVolume(await repo.getVolumes(), DateTime.now());
+    final volumes = await repo.getVolumes();
+    weeklyVolume = calculateWeeklyVolume(volumes, DateTime.now());
     final sets = await repo.getAllSets();
+    final thisMonday = mondayOf(DateTime.now());
+    thisWeek = summarizeWeek(weekStart: thisMonday, volumes: volumes, sets: sets);
+    lastWeek = summarizeWeek(
+      weekStart: DateTime(thisMonday.year, thisMonday.month, thisMonday.day - 7),
+      volumes: volumes,
+      sets: sets,
+    );
+    longestStreakDays = longestStreak(dates);
+    loaded = true;
     lifts = calculateLiftSummaries(sets);
     personalRecords = calculatePersonalRecords(sets);
     prKgByExerciseId = {};

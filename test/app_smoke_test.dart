@@ -31,6 +31,14 @@ void main() {
     }
   }
 
+  /// Like [settle], but keeps going (up to ~5 s) until [finder] matches.
+  Future<void> settleUntil(WidgetTester tester, Finder finder) async {
+    for (var i = 0; i < 50 && finder.evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   testWidgets('every tab and the workout screen lay out on a 360dp phone', (tester) async {
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1.0;
@@ -78,6 +86,13 @@ void main() {
     await settle(tester);
     await tester.tap(find.text('Profile'));
     await settle(tester);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
+    await settle(tester);
+    await tester.tap(find.text('Notifications'));
+    await settle(tester);
+    expect(find.text('Weekly recap'), findsOneWidget);
+    await tester.pageBack();
+    await settle(tester);
 
     await tester.tap(find.text('Home'));
     await settle(tester);
@@ -110,9 +125,20 @@ void main() {
     await settle(tester);
     await tester.tap(find.text('Finish'));
     await settle(tester);
+    await settleUntil(tester, find.text('ACHIEVEMENT UNLOCKED'));
+    expect(find.text('ACHIEVEMENT UNLOCKED'), findsOneWidget);
+    expect(find.text('FIRST REP'), findsOneWidget);
+    await tester.tap(find.text('NICE'));
+    await settle(tester);
     await tester.tap(find.text('Progress'));
     await settle(tester);
     expect(find.text('WEEKLY VOLUME'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('Squat (Barbell)'),
+      find.byType(ListView).hitTestable().first,
+      const Offset(0, -250),
+    );
+    await settle(tester);
     await tester.tap(find.text('Squat (Barbell)'));
     await settle(tester);
     expect(find.text('SQUAT (BARBELL)'), findsOneWidget);

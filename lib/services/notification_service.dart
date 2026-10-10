@@ -3,7 +3,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
-import 'dart:math';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
@@ -38,49 +37,17 @@ class NotificationService {
     await _android?.requestNotificationsPermission();
   }
 
-  String _getCustomMessage(String planName) {
-    final name = planName.toLowerCase();
-
-    final legMessages = [
-      "No more chicken legs, go train!",
-      "Friends don't let friends skip leg day.",
-      "The squats are calling and I must go.",
-      "Today's forecast: 100% chance of pain."
-    ];
-
-    final chestMessages = [
-      "Time to build that armor plating.",
-      "International Chest Day is every day.",
-      "Bench more, worry less."
-    ];
-
-    final backMessages = [
-      "Wings are made in the gym, not at KFC.",
-      "Building a back like a cobra.",
-      "Pull day = Best day."
-    ];
-
-    final generalMessages = [
-      "Your workout is waiting for you!",
-      "Don't wish for it, work for it.",
-      "Excuses don't burn calories.",
-      "The only bad workout is the one that didn't happen."
-    ];
-
-    if (name.contains('leg')) return legMessages[Random().nextInt(legMessages.length)];
-    if (name.contains('chest') || name.contains('push')) return chestMessages[Random().nextInt(chestMessages.length)];
-    if (name.contains('back') || name.contains('pull')) return backMessages[Random().nextInt(backMessages.length)];
-
-    return generalMessages[Random().nextInt(generalMessages.length)];
-  }
-
   /// Schedules a reminder. Returns false if [scheduledTime] is already in the
   /// past, since the plugin rejects past dates.
-  Future<bool> scheduleWorkoutReminder(int id, String planName, DateTime scheduledTime) async {
+  Future<bool> scheduleReminder(
+    int id,
+    String title,
+    String body,
+    DateTime scheduledTime, {
+    ReminderChannel channel = ReminderChannel.workouts,
+  }) async {
     final when = tz.TZDateTime.from(scheduledTime, tz.local);
     if (!when.isAfter(tz.TZDateTime.now(tz.local))) return false;
-
-    final message = _getCustomMessage(planName);
 
     // Exact alarms need a user-granted permission on Android 14+. Without it,
     // fall back to inexact scheduling, which may fire a few minutes late.
@@ -88,17 +55,18 @@ class NotificationService {
 
     await _notifications.zonedSchedule(
       id,
-      'Workout Time: $planName',
-      message,
+      title,
+      body,
       when,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
-          'workout_reminders',
-          'Workout Reminders',
-          importance: Importance.max,
-          priority: Priority.high,
+          channel.id,
+          channel.title,
+          channelDescription: channel.description,
+          importance: channel == ReminderChannel.workouts ? Importance.max : Importance.defaultImportance,
+          priority: channel == ReminderChannel.workouts ? Priority.high : Priority.defaultPriority,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(),
       ),
       androidScheduleMode: canScheduleExact
           ? AndroidScheduleMode.exactAllowWhileIdle
@@ -146,4 +114,17 @@ class NotificationService {
   }
 
   Future<void> cancelRestOver() => _notifications.cancel(_restOverId);
+}
+
+/// Android notification channels, so each kind can be muted separately in
+/// the phone's settings.
+enum ReminderChannel {
+  workouts('workout_reminders', 'Workout reminders', 'Reminders for workouts you scheduled'),
+  motivation('motivation', 'Motivation', 'Streak alerts, weekly target check-ins and nudges'),
+  recap('weekly_recap', 'Weekly recap', 'Your training summary every Sunday');
+
+  const ReminderChannel(this.id, this.title, this.description);
+  final String id;
+  final String title;
+  final String description;
 }

@@ -10,7 +10,10 @@ class SetRecord {
   final double weight;
   final int reps;
 
-  SetRecord(this.exerciseId, this.exerciseName, this.weight, this.reps);
+  /// When the workout started; null in tests that don't need it.
+  final DateTime? date;
+
+  SetRecord(this.exerciseId, this.exerciseName, this.weight, this.reps, [this.date]);
 }
 
 class WorkoutStats {
@@ -138,7 +141,7 @@ class WorkoutRepository {
   Future<List<SetRecord>> getAllSets() async {
     final db = await _db;
     final rows = await db.rawQuery('''
-      SELECT we.exerciseId, we.exerciseName, s.weight, s.reps
+      SELECT we.exerciseId, we.exerciseName, s.weight, s.reps, w.startedAt
       FROM workout_sets s
       JOIN workout_exercises we ON we.id = s.workoutExerciseId
       JOIN workouts w ON w.id = we.workoutId
@@ -150,6 +153,7 @@ class WorkoutRepository {
               r['exerciseName'] as String,
               (r['weight'] as num).toDouble(),
               r['reps'] as int,
+              DateTime.fromMillisecondsSinceEpoch(r['startedAt'] as int),
             ))
         .toList();
   }

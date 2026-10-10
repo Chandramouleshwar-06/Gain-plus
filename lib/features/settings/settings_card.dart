@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import 'notification_settings_screen.dart';
 import 'settings_provider.dart';
 
 /// Settings shown at the bottom of the Profile tab.
@@ -29,6 +30,16 @@ class SettingsCard extends StatelessWidget {
             trailing: Text(formatRest(settings.restSeconds),
                 style: AppText.display(20, weight: FontWeight.w700, color: AppColors.lime)),
             onTap: () => _pickRest(context, settings),
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('Notifications', style: AppText.strong),
+            subtitle: const Text('Reminders, quiet hours and limits', style: AppText.muted),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+            ),
           ),
         ],
       ),

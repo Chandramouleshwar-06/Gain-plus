@@ -4,7 +4,6 @@ import '../../data/programs.dart';
 import '../../data/seed_data.dart';
 import '../../data/schedule_repository.dart';
 import '../../models/workout_plan.dart';
-import '../../services/notification_service.dart';
 import '../../utils/date_keys.dart';
 
 class PlansProvider extends ChangeNotifier {
@@ -38,7 +37,7 @@ class PlansProvider extends ChangeNotifier {
     final plan = plans.firstWhere((p) => p.id == planId);
     for (int i = 0; i < repeatWeeks; i++) {
       // DateTime constructor (not add) so a DST change can't shift the day.
-      await _scheduleOne(DateTime(date.year, date.month, date.day + 7 * i), plan.id, plan.name, time);
+      await _scheduleOne(DateTime(date.year, date.month, date.day + 7 * i), plan.id, time);
     }
     await loadPlans();
   }
@@ -67,8 +66,8 @@ class PlansProvider extends ChangeNotifier {
       for (var offset = 0; offset < weeks * 7; offset++) {
         final date = DateTime(today.year, today.month, today.day + offset);
         if (!weekdays.contains(date.weekday)) continue;
-        final (planId, planName) = created[next % created.length];
-        await _scheduleOne(date, planId, planName, time);
+        final (planId, _) = created[next % created.length];
+        await _scheduleOne(date, planId, time);
         next++;
         scheduled++;
       }
@@ -77,30 +76,15 @@ class PlansProvider extends ChangeNotifier {
     return scheduled;
   }
 
-  /// Schedules one plan on one day, with a reminder at [time].
-  Future<void> _scheduleOne(DateTime scheduledDate, String planId, String planName, TimeOfDay time) async {
+  /// Schedules one plan on one day. Its reminder at [time] is set up by the
+  /// reminder engine, which re-plans whenever schedules change.
+  Future<void> _scheduleOne(DateTime scheduledDate, String planId, TimeOfDay time) async {
     await ScheduleRepository.instance.set(
       scheduledDate,
       planId,
       reminderMinutes: time.hour * 60 + time.minute,
     );
 
-    final scheduledDateTime = DateTime(
-      scheduledDate.year,
-      scheduledDate.month,
-      scheduledDate.day,
-      time.hour,
-      time.minute,
-    );
-    final notificationId = reminderIdForDate(scheduledDate);
-
-    // A failed or past-dated reminder shouldn't stop the other days from saving.
-    try {
-      await NotificationService.instance.cancelReminder(notificationId);
-      await NotificationService.instance.scheduleWorkoutReminder(notificationId, planName, scheduledDateTime);
-    } catch (e) {
-      debugPrint('Failed to schedule reminder for ${dateKey(scheduledDate)}: $e');
-    }
   }
 
   Future<void> updateTargets(String planId, String itemId, int sets, int? reps) async {
@@ -129,27 +113,15 @@ class PlansProvider extends ChangeNotifier {
     await loadPlans();
   }
 
-  /// Deletes the plan, its schedules and their reminders.
+  /// Deletes the plan and its schedules.
   Future<void> deletePlan(String planId) async {
-    final dates = await PlanRepository.instance.delete(planId);
-    for (final key in dates) {
-      try {
-        await NotificationService.instance.cancelReminder(reminderIdForDate(parseDateKey(key)));
-      } catch (e) {
-        debugPrint('Failed to cancel reminder for $key: $e');
-      }
-    }
+    await PlanRepository.instance.delete(planId);
     await loadPlans();
   }
 
-  /// Removes what's scheduled on [date] and cancels its reminder.
+  /// Removes what's scheduled on [date].
   Future<void> unschedule(DateTime date) async {
     await ScheduleRepository.instance.clear(date);
-    try {
-      await NotificationService.instance.cancelReminder(reminderIdForDate(date));
-    } catch (e) {
-      debugPrint('Failed to cancel reminder for ${dateKey(date)}: $e');
-    }
     await loadPlans();
   }
 

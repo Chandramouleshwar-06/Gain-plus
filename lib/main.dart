@@ -11,6 +11,7 @@ import 'features/exercise/exercise_provider.dart';
 import 'features/progress/progress_provider.dart';
 import 'features/profile/onboarding_screen.dart';
 import 'features/profile/profile_provider.dart';
+import 'features/reminders/reminder_sync.dart';
 import 'features/settings/settings_provider.dart';
 import 'navigation/app_shell.dart';
 import 'navigation/nav_provider.dart';
@@ -73,6 +74,6 @@ class _Root extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = context.watch<ProfileProvider>();
     if (!profile.loaded) return const Scaffold();
-    return profile.needsOnboarding ? const OnboardingScreen() : const AppShell();
+    return profile.needsOnboarding ? const OnboardingScreen() : const ReminderSync(child: AppShell());
   }
 }

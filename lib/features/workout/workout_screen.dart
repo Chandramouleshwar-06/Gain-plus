@@ -8,6 +8,8 @@ import '../../utils/format.dart';
 import '../../widgets/ui.dart';
 import '../profile/profile_provider.dart';
 import '../settings/settings_provider.dart';
+import '../progress/achievement_tracker.dart';
+import '../progress/achievements_view.dart';
 import '../progress/progress_provider.dart';
 import 'overload.dart';
 import 'workout_launcher.dart';
@@ -24,7 +26,10 @@ class WorkoutScreen extends StatelessWidget {
         if (!provider.isWorkoutActive) {
           // Finished or discarded: close this screen.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+            // Remove this route specifically, not whatever is on top (e.g. a
+            // celebration dialog shown right after finishing).
+            final route = ModalRoute.of(context);
+            if (context.mounted && route != null && route.isActive) Navigator.of(context).removeRoute(route);
           });
           return const Scaffold();
         }
@@ -136,6 +141,7 @@ class _Header extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
     final progress = context.read<ProgressProvider>();
     final profile = context.read<ProfileProvider>();
     try {
@@ -153,6 +159,11 @@ class _Header extends StatelessWidget {
     final achieved = await profile.markAchievedGoals(progress.prKgByExerciseId);
     if (achieved.isNotEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('Goal reached! Check your profile.')));
+    }
+    final unlocked = await AchievementTracker.instance.checkNew(achievementStats(progress, profile));
+    final overlayContext = rootNavigator.overlay?.context;
+    if (unlocked.isNotEmpty && overlayContext != null && overlayContext.mounted) {
+      await showAchievementsUnlocked(overlayContext, unlocked);
     }
   }
 

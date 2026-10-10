@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../reminders/reminder_planner.dart';
 
 /// Per-device preferences (not synced): rest timer and notifications.
 class SettingsProvider extends ChangeNotifier {
@@ -13,10 +14,34 @@ class SettingsProvider extends ChangeNotifier {
   bool restTimerEnabled = true;
   int restSeconds = 90;
 
+  /// Which reminder kinds are on, by [ReminderKind.name].
+  Map<String, bool> reminderKinds = {for (final k in ReminderKind.values) k.name: true};
+  int quietStartHour = 22;
+  int quietEndHour = 7;
+  int dailyCap = 2;
+
+  ReminderPrefs get reminderPrefs => ReminderPrefs(
+        workout: reminderKinds[ReminderKind.workout.name]!,
+        followUp: reminderKinds[ReminderKind.followUp.name]!,
+        streak: reminderKinds[ReminderKind.streak.name]!,
+        weeklyGoal: reminderKinds[ReminderKind.weeklyGoal.name]!,
+        inactivity: reminderKinds[ReminderKind.inactivity.name]!,
+        recap: reminderKinds[ReminderKind.recap.name]!,
+        quietStartHour: quietStartHour,
+        quietEndHour: quietEndHour,
+        dailyCap: dailyCap,
+      );
+
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
     restTimerEnabled = _prefs!.getBool(_restEnabledKey) ?? true;
     restSeconds = _prefs!.getInt(_restSecondsKey) ?? 90;
+    for (final k in ReminderKind.values) {
+      reminderKinds[k.name] = _prefs!.getBool('reminder_${k.name}') ?? true;
+    }
+    quietStartHour = _prefs!.getInt('quiet_start') ?? 22;
+    quietEndHour = _prefs!.getInt('quiet_end') ?? 7;
+    dailyCap = _prefs!.getInt('daily_cap') ?? 2;
     notifyListeners();
   }
 
@@ -27,6 +52,26 @@ class SettingsProvider extends ChangeNotifier {
     restTimerEnabled = value;
     notifyListeners();
     await _prefs?.setBool(_restEnabledKey, value);
+  }
+
+  Future<void> setReminderKind(ReminderKind kind, bool enabled) async {
+    reminderKinds = {...reminderKinds, kind.name: enabled};
+    notifyListeners();
+    await _prefs?.setBool('reminder_${kind.name}', enabled);
+  }
+
+  Future<void> setQuietHours(int startHour, int endHour) async {
+    quietStartHour = startHour;
+    quietEndHour = endHour;
+    notifyListeners();
+    await _prefs?.setInt('quiet_start', startHour);
+    await _prefs?.setInt('quiet_end', endHour);
+  }
+
+  Future<void> setDailyCap(int value) async {
+    dailyCap = value;
+    notifyListeners();
+    await _prefs?.setInt('daily_cap', value);
   }
 
   Future<void> setRestSeconds(int value) async {

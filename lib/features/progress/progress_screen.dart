@@ -5,6 +5,7 @@ import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/ui.dart';
 import '../home/home_screen.dart';
+import '../profile/profile_provider.dart';
 import 'progress_provider.dart';
 import '../../widgets/charts.dart';
 import 'exercise_progress_screen.dart';
@@ -59,6 +60,8 @@ class ProgressScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    const _ThisWeekCard(),
                     const SizedBox(height: 24),
                     const SectionHeader(title: 'Weekly volume'),
                     AppCard(
@@ -136,6 +139,81 @@ class _LiftRow extends StatelessWidget {
             const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// This week so far vs the target and last week, with new PRs.
+class _ThisWeekCard extends StatelessWidget {
+  const _ThisWeekCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = context.watch<ProgressProvider>();
+    final target = context.watch<ProfileProvider>().weeklyTarget;
+    final week = progress.thisWeek;
+    if (week == null) return const SizedBox.shrink();
+
+    final change = week.volumeChange;
+    final hit = week.workouts >= target;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: hit ? AppColors.lime : AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.hero),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('THIS WEEK', style: AppText.eyebrow.copyWith(color: hit ? AppColors.onLime : AppColors.textMuted)),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${week.workouts}/$target',
+                  style: AppText.display(44, color: hit ? AppColors.onLime : AppColors.text)),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(hit ? 'target hit!' : 'workouts',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: hit ? AppColors.onLime : AppColors.textMuted)),
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${(week.volume / 1000).toStringAsFixed(1)} t',
+                      style: AppText.display(26, color: hit ? AppColors.onLime : AppColors.text)),
+                  if (change != null)
+                    Text(
+                      '${change >= 0 ? '▲' : '▼'} ${(change.abs() * 100).round()}% vs last week',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: hit ? AppColors.onLime : (change >= 0 ? AppColors.lime : AppColors.textMuted),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          if (week.newPrs.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final name in week.newPrs)
+                  hit ? InfoChip.onLime('PR · $name') : InfoChip('PR · $name', foreground: AppColors.orange),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

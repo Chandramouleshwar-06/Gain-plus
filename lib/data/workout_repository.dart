@@ -155,6 +155,50 @@ class WorkoutRepository {
   }
 }
 
+/// One workout's sets for a single exercise.
+class ExerciseSession {
+  final DateTime date;
+  final List<SetEntry> sets;
+
+  ExerciseSession(this.date, this.sets);
+}
+
+extension ExerciseHistory on WorkoutRepository {
+  /// Every session of [exerciseId], oldest first.
+  Future<List<ExerciseSession>> getExerciseHistory(String exerciseId) async {
+    final db = await DatabaseService.instance.database;
+    final rows = await db.rawQuery('''
+      SELECT we.id AS entryId, w.startedAt, s.id, s.position, s.weight, s.reps
+      FROM workout_sets s
+      JOIN workout_exercises we ON we.id = s.workoutExerciseId
+      JOIN workouts w ON w.id = we.workoutId
+      WHERE we.exerciseId = ? AND s.deletedAt IS NULL AND we.deletedAt IS NULL AND w.deletedAt IS NULL
+      ORDER BY w.startedAt, s.position
+    ''', [exerciseId]);
+
+    final sessions = <String, ExerciseSession>{};
+    for (final r in rows) {
+      sessions
+          .putIfAbsent(
+            r['entryId'] as String,
+            () => ExerciseSession(DateTime.fromMillisecondsSinceEpoch(r['startedAt'] as int), []),
+          )
+          .sets
+          .add(SetEntry.fromMap(r));
+    }
+    return sessions.values.toList();
+  }
+
+  /// (start time, volume) of every workout.
+  Future<List<(DateTime, double)>> getVolumes() async {
+    final db = await DatabaseService.instance.database;
+    final rows = await db.query('workouts', columns: ['startedAt', 'totalVolume'], where: notDeleted);
+    return rows
+        .map((r) => (DateTime.fromMillisecondsSinceEpoch(r['startedAt'] as int), (r['totalVolume'] as num).toDouble()))
+        .toList();
+  }
+}
+
 /// Stores the in-progress workout locally so it survives the app being
 /// killed. Not synced.
 class ActiveWorkoutStore {

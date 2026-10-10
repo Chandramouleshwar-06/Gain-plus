@@ -88,7 +88,10 @@ void main() {
     expect(find.text('FINISH'), findsOneWidget);
     expect(find.text('SQUAT (BARBELL)'), findsOneWidget);
 
-    // Ticking a set starts the rest timer.
+    // Log 100 kg x 5 on the first set; ticking it starts the rest timer.
+    await tester.enterText(find.byType(TextField).at(0), '100');
+    await tester.enterText(find.byType(TextField).at(1), '5');
+    await tester.pump();
     await tester.tap(find.bySemanticsLabel('Set 1 done').first);
     await settle(tester);
     expect(find.text('REST'), findsOneWidget);
@@ -96,10 +99,24 @@ void main() {
     await settle(tester);
     expect(find.text('REST'), findsNothing);
 
-    // Back to the tabs: the in-progress bar shows.
+    // Minimize: the in-progress bar shows above the tabs; tap it to come back.
     await tester.tap(find.byTooltip('Minimize'));
     await settle(tester);
-    expect(find.text('LEGS (QUADS/HAMS/CALVES)'), findsWidgets);
+    await tester.tap(find.text('LEGS (QUADS/HAMS/CALVES)').last);
+    await settle(tester);
+
+    // Finish, then the lift shows on Progress with its chart screen.
+    await tester.tap(find.text('FINISH'));
+    await settle(tester);
+    await tester.tap(find.text('Finish'));
+    await settle(tester);
+    await tester.tap(find.text('Progress'));
+    await settle(tester);
+    expect(find.text('WEEKLY VOLUME'), findsOneWidget);
+    await tester.tap(find.text('Squat (Barbell)'));
+    await settle(tester);
+    expect(find.text('SQUAT (BARBELL)'), findsOneWidget);
+    expect(find.text('Do this exercise one more time to see a trend.'), findsOneWidget);
   });
 }
 

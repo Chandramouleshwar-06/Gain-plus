@@ -7,6 +7,7 @@ import '../../models/profile.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/charts.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_screen.dart';
@@ -318,6 +319,14 @@ class _BodyWeightCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (entries.length >= 2) ...[
+            const SizedBox(height: 12),
+            TrendLineChart(
+              points: [for (final e in entries) (e.date, e.weightKg)],
+              semanticsLabel: 'Body weight over ${entries.length} weigh-ins, from '
+                  '${formatWeight(entries.first.weightKg)} to ${formatWeight(latest.weightKg)} kg.',
+            ),
+          ],
           const SizedBox(height: 8),
           for (final entry in recent)
             Dismissible(

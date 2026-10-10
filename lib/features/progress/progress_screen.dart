@@ -6,6 +6,8 @@ import '../../widgets/app_card.dart';
 import '../../widgets/ui.dart';
 import '../home/home_screen.dart';
 import 'progress_provider.dart';
+import '../../widgets/charts.dart';
+import 'exercise_progress_screen.dart';
 import 'workout_detail_screen.dart';
 
 class ProgressScreen extends StatelessWidget {
@@ -14,8 +16,6 @@ class ProgressScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProgressProvider>();
-    final records = provider.personalRecords.entries.toList()
-      ..sort((a, b) => b.value.weight.compareTo(a.value.weight));
 
     return Scaffold(
       body: SafeArea(
@@ -60,30 +60,23 @@ class ProgressScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    const SectionHeader(title: 'Personal records'),
-                    if (records.isEmpty)
-                      const AppCard(child: Text('Finish a workout to set your first PR.', style: AppText.muted))
+                    const SectionHeader(title: 'Weekly volume'),
+                    AppCard(
+                      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+                      child: VolumeBarChart(weeks: provider.weeklyVolume),
+                    ),
+                    const SizedBox(height: 24),
+                    const SectionHeader(title: 'Lifts'),
+                    if (provider.lifts.isEmpty)
+                      const AppCard(child: Text('Finish a workout to see your lifts and PRs.', style: AppText.muted))
                     else
                       AppCard(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Column(
                           children: [
-                            for (var i = 0; i < records.length; i++) ...[
-                              if (i > 0) const Divider(),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.emoji_events_rounded, color: AppColors.orange, size: 20),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: Text(records[i].key, style: AppText.strong)),
-                                    Text(
-                                      '${formatWeight(records[i].value.weight)} kg × ${records[i].value.reps}',
-                                      style: AppText.display(20, weight: FontWeight.w700),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            for (var i = 0; i < provider.lifts.length; i++) ...[
+                              if (i > 0) const Divider(indent: 16, endIndent: 16),
+                              _LiftRow(lift: provider.lifts[i]),
                             ],
                           ],
                         ),
@@ -107,6 +100,41 @@ class ProgressScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiftRow extends StatelessWidget {
+  final LiftSummary lift;
+  const _LiftRow({required this.lift});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ExerciseProgressScreen(exerciseId: lift.exerciseId, name: lift.name),
+      )),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.emoji_events_rounded, color: AppColors.orange, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lift.name, style: AppText.strong),
+                  Text('Est. 1RM ${formatWeight(lift.bestE1rm.roundToDouble())} kg', style: AppText.muted),
+                ],
+              ),
+            ),
+            Text('${formatWeight(lift.prWeight)} × ${lift.prReps}', style: AppText.display(20, weight: FontWeight.w700)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+          ],
         ),
       ),
     );

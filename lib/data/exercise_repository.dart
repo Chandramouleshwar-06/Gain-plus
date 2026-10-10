@@ -15,6 +15,17 @@ class ExerciseRepository {
     return rows.map(Exercise.fromMap).toList();
   }
 
+  /// Deletes a custom exercise and removes it from every plan. Past
+  /// workouts keep their copy of the name.
+  Future<void> deleteCustom(String id) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.update('plan_exercises', softDeleted(),
+          where: 'exerciseId = ? AND $notDeleted', whereArgs: [id]);
+      await txn.update('exercises', softDeleted(), where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+    });
+  }
+
   /// Adds a custom exercise. Returns null if one with the same name exists.
   Future<Exercise?> addCustom({
     required String name,

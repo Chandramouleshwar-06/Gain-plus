@@ -59,6 +59,22 @@ class WorkoutRepository {
     });
   }
 
+  /// Deletes a workout with its exercises and sets.
+  Future<void> delete(String workoutId) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      final entries = await txn.query('workout_exercises',
+          columns: ['id'], where: 'workoutId = ? AND $notDeleted', whereArgs: [workoutId]);
+      for (final entry in entries) {
+        await txn.update('workout_sets', softDeleted(),
+            where: 'workoutExerciseId = ? AND $notDeleted', whereArgs: [entry['id']]);
+      }
+      await txn.update('workout_exercises', softDeleted(),
+          where: 'workoutId = ? AND $notDeleted', whereArgs: [workoutId]);
+      await txn.update('workouts', softDeleted(), where: 'id = ?', whereArgs: [workoutId]);
+    });
+  }
+
   /// Workouts newest first, without their exercises.
   Future<List<Workout>> getRecent({int? limit}) async {
     final db = await _db;

@@ -1,294 +1,225 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../models/workout.dart';
+import '../../models/workout_plan.dart';
+import '../../navigation/nav_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
-import '../../models/workout_plan.dart';
-import '../progress/progress_provider.dart';
+import '../../widgets/ui.dart';
 import '../plans/plans_provider.dart';
+import '../progress/progress_provider.dart';
+import '../workout/workout_launcher.dart';
 import '../workout/workout_provider.dart';
-import '../exercise/exercise_provider.dart';
-import '../../main.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProgressProvider>().loadData();
-      context.read<PlansProvider>().loadPlans();
-      context.read<ExerciseProvider>().loadExercises();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: RefreshIndicator(
+          color: AppColors.lime,
+          onRefresh: () async {
+            await Future.wait([
+              context.read<ProgressProvider>().loadData(),
+              context.read<PlansProvider>().loadPlans(),
+            ]);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Hey, User',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.account_circle_outlined, size: 32, color: AppTheme.accentBlue),
-                    onPressed: () {
-                      MainScreen.of(context)?.setIndex(5); // Switch to Progress/Profile tab
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildStreakCard(context),
+              _Header(now: now),
+              const SizedBox(height: 20),
+              _WeekStrip(now: now),
+              const SizedBox(height: 20),
+              const _TodayCard(),
               const SizedBox(height: 16),
-              _buildTodayWorkoutCard(context),
+              _Stats(now: now),
               const SizedBox(height: 24),
-              Text(
-                'Recent Workouts',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              _buildRecentWorkouts(context),
+              const _RecentWorkouts(),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildStreakCard(BuildContext context) {
-    return Consumer<ProgressProvider>(
-      builder: (context, provider, child) {
-        return AppCard(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.local_fire_department,
-                  color: AppTheme.accentBlue,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${provider.streak} Day Streak',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Keep it going!',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+class _Header extends StatelessWidget {
+  final DateTime now;
+  const _Header({required this.now});
 
-  Widget _buildTodayWorkoutCard(BuildContext context) {
-    return Consumer2<PlansProvider, WorkoutProvider>(
-      builder: (context, plansProvider, workoutProvider, child) {
-        final plans = plansProvider.plans;
-        if (plans.isEmpty) {
-          return AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'No Workout Planned',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Create a workout plan to get started',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (workoutProvider.isWorkoutActive) {
-          return AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Workout in progress',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  workoutProvider.activePlanName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                PrimaryButton(
-                  text: 'Resume Workout',
-                  onPressed: () => MainScreen.of(context)?.setIndex(1),
-                  isLarge: true,
-                ),
-              ],
-            ),
-          );
-        }
-
-        final todayPlan = plansProvider.planForDate(DateTime.now());
-
-        if (todayPlan == null) {
-          return AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Today's Workout",
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Nothing scheduled today',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Take a rest day, or pick a plan to train anyway.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                PrimaryButton(
-                  text: 'Choose a Workout',
-                  onPressed: () => _showPlanPicker(context, plans),
-                  isLarge: true,
-                ),
-              ],
-            ),
-          );
-        }
-
-        return AppCard(
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Today's Workout",
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                todayPlan.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _buildInfoChip('${todayPlan.exerciseIds.length} exercises'),
-                  const SizedBox(width: 8),
-                  _buildInfoChip('~45 min'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                text: 'Start Workout',
-                onPressed: () => _startPlan(context, todayPlan),
-                isLarge: true,
-              ),
+              Text(DateFormat('EEE · d MMM').format(now).toUpperCase(), style: AppText.eyebrow),
+              const SizedBox(height: 4),
+              Text("LET'S GO", style: AppText.display(38)),
             ],
           ),
-        );
-      },
+        ),
+        IconButton(
+          tooltip: 'Profile',
+          onPressed: () => context.read<NavProvider>().goTo(AppTab.profile),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.surface,
+            side: const BorderSide(color: AppColors.lime, width: 2),
+            fixedSize: const Size(48, 48),
+          ),
+          icon: const Icon(Icons.person_rounded, color: AppColors.text),
+        ),
+      ],
     );
   }
+}
 
-  Future<void> _startPlan(BuildContext context, WorkoutPlan plan) async {
-    final exerciseProvider = context.read<ExerciseProvider>();
-    final workoutProvider = context.read<WorkoutProvider>();
-    final mainScreen = MainScreen.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+/// Monday-to-Sunday strip marking days with a workout.
+class _WeekStrip extends StatelessWidget {
+  final DateTime now;
+  const _WeekStrip({required this.now});
 
-    if (exerciseProvider.exercises.isEmpty) {
-      await exerciseProvider.loadExercises();
-    }
+  @override
+  Widget build(BuildContext context) {
+    final days = context.watch<ProgressProvider>().workoutDays;
+    final today = DateTime(now.year, now.month, now.day);
+    final monday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
+    const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-    // Skip any exercise IDs that no longer exist instead of crashing.
-    final workoutExercises = <WorkoutExercise>[];
-    for (final item in plan.items) {
-      final exercise = exerciseProvider.exercises.where((e) => e.id == item.exerciseId).firstOrNull;
-      if (exercise == null) continue;
-      workoutExercises.add(WorkoutExercise(
-        exerciseId: item.exerciseId,
-        name: exercise.name,
-        sets: [for (var i = 0; i < item.targetSets; i++) WorkoutSet()],
-      ));
-    }
+    return Row(
+      children: [
+        for (var i = 0; i < 7; i++)
+          Expanded(
+            child: Builder(builder: (context) {
+              final day = DateTime(monday.year, monday.month, monday.day + i);
+              final done = days.contains(day);
+              final isToday = day == today;
+              return Semantics(
+                label: '${DateFormat('EEEE').format(day)}${done ? ', trained' : ''}',
+                child: Column(
+                  children: [
+                    Text(
+                      isToday ? 'TODAY' : letters[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                        color: isToday ? AppColors.text : AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: done ? AppColors.lime : (isToday ? Colors.transparent : AppColors.surfaceHigh),
+                        border: isToday && !done ? Border.all(color: AppColors.lime, width: 2) : null,
+                      ),
+                      child: done ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onLime) : null,
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+      ],
+    );
+  }
+}
 
-    if (workoutExercises.isEmpty) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('${plan.name} has no exercises yet. Add some in Plans.')),
+class _TodayCard extends StatelessWidget {
+  const _TodayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final workout = context.watch<WorkoutProvider>();
+    final plans = context.watch<PlansProvider>();
+
+    if (workout.isWorkoutActive) {
+      return _LimeCard(
+        eyebrow: 'IN PROGRESS',
+        title: workout.activePlanName,
+        chips: ['${workout.completedSetCount} sets done'],
+        buttonLabel: 'Resume workout',
+        onPressed: () => openActiveWorkout(context),
       );
-      return;
     }
 
-    workoutProvider.startWorkout(plan.id, plan.name, workoutExercises);
-    mainScreen?.setIndex(1); // Workout tab
+    if (plans.plans.isEmpty) {
+      return AppCard(
+        padding: const EdgeInsets.all(20),
+        radius: AppRadius.hero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('GET STARTED', style: AppText.eyebrow),
+            const SizedBox(height: 8),
+            Text('CREATE YOUR FIRST PLAN', style: AppText.display(32)),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              text: 'Go to Train',
+              onPressed: () => context.read<NavProvider>().goTo(AppTab.train, section: TrainSection.plans),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final todayPlan = plans.planForDate(DateTime.now());
+    if (todayPlan != null) {
+      return _LimeCard(
+        eyebrow: "TODAY'S SESSION",
+        title: todayPlan.name,
+        chips: ['${todayPlan.items.length} exercises', '~${estimateMinutes(todayPlan)} min'],
+        buttonLabel: 'Start workout',
+        onPressed: () => startPlanWorkout(context, todayPlan),
+      );
+    }
+
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      radius: AppRadius.hero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('TODAY', style: AppText.eyebrow),
+          const SizedBox(height: 8),
+          Text('REST DAY', style: AppText.display(44)),
+          const SizedBox(height: 6),
+          const Text('Nothing scheduled. Recover, or train anyway.', style: AppText.muted),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            text: 'Choose a workout',
+            icon: Icons.play_arrow_rounded,
+            onPressed: () => _showPlanPicker(context, plans.plans),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPlanPicker(BuildContext context, List<WorkoutPlan> plans) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text('Choose a Workout', style: Theme.of(sheetContext).textTheme.titleLarge),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text('CHOOSE A WORKOUT', style: AppText.display(26)),
               ),
               Flexible(
                 child: ListView.builder(
@@ -297,15 +228,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (_, index) {
                     final plan = plans[index];
                     return ListTile(
-                      leading: const Icon(Icons.fitness_center, color: AppTheme.accentBlue),
-                      title: Text(plan.name, style: const TextStyle(color: AppTheme.textPrimary)),
-                      subtitle: Text(
-                        '${plan.exerciseIds.length} exercises',
-                        style: const TextStyle(color: AppTheme.textSecondary),
-                      ),
+                      leading: const Icon(Icons.fitness_center_rounded, color: AppColors.lime),
+                      title: Text(plan.name, style: AppText.strong),
+                      subtitle: Text('${plan.items.length} exercises · ~${estimateMinutes(plan)} min',
+                          style: AppText.muted),
                       onTap: () {
                         Navigator.pop(sheetContext);
-                        _startPlan(context, plan);
+                        startPlanWorkout(context, plan);
                       },
                     );
                   },
@@ -314,93 +243,167 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppTheme.textSecondary,
         ),
       ),
     );
   }
+}
 
-  Widget _buildRecentWorkouts(BuildContext context) {
-    return Consumer<ProgressProvider>(
-      builder: (context, provider, child) {
-        if (provider.recentWorkouts.isEmpty) {
-          return AppCard(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'No workouts yet',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
+/// The lime hero card from the design.
+class _LimeCard extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  final List<String> chips;
+  final String buttonLabel;
+  final VoidCallback onPressed;
+
+  const _LimeCard({
+    required this.eyebrow,
+    required this.title,
+    required this.chips,
+    required this.buttonLabel,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(color: AppColors.lime, borderRadius: BorderRadius.circular(AppRadius.hero)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(eyebrow, style: AppText.eyebrow.copyWith(color: AppColors.onLime)),
+          const SizedBox(height: 10),
+          Text(title.toUpperCase(), style: AppText.display(40, color: AppColors.onLime).copyWith(height: 0.95)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 8, runSpacing: 8, children: [for (final c in chips) InfoChip.onLime(c)]),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            text: buttonLabel,
+            icon: Icons.play_arrow_rounded,
+            variant: ButtonVariant.inverse,
+            isLarge: true,
+            onPressed: onPressed,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stats extends StatelessWidget {
+  final DateTime now;
+  const _Stats({required this.now});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = context.watch<ProgressProvider>();
+    final tonnes = progress.totalVolume / 1000;
+    return Row(
+      children: [
+        Expanded(
+          child: StatTile(
+            icon: Icons.local_fire_department_rounded,
+            iconColor: AppColors.orange,
+            value: '${progress.streak}',
+            label: 'day streak',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: StatTile(
+            icon: Icons.calendar_today_rounded,
+            value: '${progress.workoutsThisWeek(now)}',
+            label: 'this week',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: StatTile(
+            icon: Icons.trending_up_rounded,
+            value: tonnes >= 1 ? '${tonnes.toStringAsFixed(1)}t' : '${progress.totalVolume.toStringAsFixed(0)}kg',
+            label: 'total volume',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentWorkouts extends StatelessWidget {
+  const _RecentWorkouts();
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = context.watch<ProgressProvider>().recentWorkouts.take(3).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: 'Recent',
+          actionLabel: recent.isEmpty ? null : 'See all',
+          onAction: () => context.read<NavProvider>().goTo(AppTab.progress),
+        ),
+        if (recent.isEmpty)
+          const AppCard(
+            child: Padding(
+              padding: EdgeInsets.all(8),
+              child: Text('No workouts yet. Your first one will show up here.', style: AppText.muted),
             ),
-          );
-        }
+          )
+        else
+          for (final w in recent) ...[
+            WorkoutSummaryCard(workout: w),
+            const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+}
 
-        return Column(
-          children: provider.recentWorkouts.take(5).map((workout) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: AppCard(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.fitness_center,
-                        color: AppTheme.accentBlue,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            workout.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${workout.startedAt.day}/${workout.startedAt.month}/${workout.startedAt.year} • '
-                            '${workout.durationMinutes} min • ${workout.totalVolume.toStringAsFixed(0)} kg',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+/// One past workout: name, date, duration and volume.
+class WorkoutSummaryCard extends StatelessWidget {
+  final Workout workout;
+  final VoidCallback? onTap;
+
+  const WorkoutSummaryCard({super.key, required this.workout, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.lime.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.fitness_center_rounded, color: AppColors.lime, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(workout.name, style: AppText.strong, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(
+                  '${DateFormat('EEE d MMM').format(workout.startedAt)} · '
+                  '${workout.durationMinutes} min · ${workout.totalVolume.toStringAsFixed(0)} kg',
+                  style: AppText.muted,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            );
-          }).toList(),
-        );
-      },
+              ],
+            ),
+          ),
+          if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
+      ),
     );
   }
 }

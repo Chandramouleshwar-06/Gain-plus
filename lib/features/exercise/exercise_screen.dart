@@ -1,29 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/exercise.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
-import '../../models/exercise.dart';
+import '../../widgets/ui.dart';
+import '../plans/plans_provider.dart';
 import 'exercise_provider.dart';
 
-class ExerciseScreen extends StatefulWidget {
-  const ExerciseScreen({super.key});
+/// The Exercises section of the Train tab: the exercise library.
+class ExercisesView extends StatefulWidget {
+  const ExercisesView({super.key});
 
   @override
-  State<ExerciseScreen> createState() => _ExerciseScreenState();
+  State<ExercisesView> createState() => _ExercisesViewState();
 }
 
-class _ExerciseScreenState extends State<ExerciseScreen> {
+class _ExercisesViewState extends State<ExercisesView> {
   final TextEditingController _searchController = TextEditingController();
-  String searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ExerciseProvider>().loadExercises();
-    });
-  }
+  String _query = '';
+  String? _muscleGroup;
 
   @override
   void dispose() {
@@ -33,291 +29,251 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Exercises',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search exercises',
-                      prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
-                      suffixIcon: searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: AppTheme.textSecondary),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  searchQuery = '';
-                                });
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: AppTheme.cardBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                    onChanged: (value) {
-                      setState(() {
-                        searchQuery = value.toLowerCase();
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Consumer<ExerciseProvider>(
-                builder: (context, provider, child) {
-                  final filteredExercises = provider.exercises
-                      .where((e) => e.name.toLowerCase().contains(searchQuery))
-                      .toList();
+    final provider = context.watch<ExerciseProvider>();
+    final q = _query.toLowerCase();
+    final filtered = provider.exercises.where((e) {
+      final matchesQuery = q.isEmpty || e.name.toLowerCase().contains(q) || e.muscleGroup.toLowerCase().contains(q);
+      final matchesGroup = _muscleGroup == null || e.muscleGroup.split('/').map((g) => g.trim()).contains(_muscleGroup);
+      return matchesQuery && matchesGroup;
+    }).toList();
 
-                  if (filteredExercises.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.search_off,
-                              size: 64,
-                              color: AppTheme.textSecondary,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No exercises found matching "$searchQuery"',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 24),
-                            PrimaryButton(
-                              text: 'Add "$searchQuery" as New Exercise',
-                              onPressed: () => _showAddExerciseDialog(context, searchQuery),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: filteredExercises.length,
-                    itemBuilder: (context, index) {
-                      final exercise = filteredExercises[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: AppCard(
-                          onTap: () => _showExerciseDetails(context, exercise),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.fitness_center,
-                                  color: AppTheme.accentBlue,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      exercise.name,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      exercise.muscleGroup,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search exercises',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                            onPressed: () => setState(() {
+                              _searchController.clear();
+                              _query = '';
+                            }),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              IconButton.filled(
+                tooltip: 'Add exercise',
+                onPressed: () => _showAddExerciseSheet(context, _query),
+                style: IconButton.styleFrom(fixedSize: const Size(50, 50)),
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.accentBlue,
-        onPressed: () => _showAddExerciseDialog(context, ''),
-        child: const Icon(Icons.add, color: Colors.white),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            children: [
+              for (final group in [null, ...provider.muscleGroups])
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(group ?? 'All'),
+                    selected: _muscleGroup == group,
+                    showCheckmark: false,
+                    labelStyle: TextStyle(
+                      color: _muscleGroup == group ? AppColors.onLime : AppColors.text,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    onSelected: (_) => setState(() => _muscleGroup = group),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: filtered.isEmpty
+              ? EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No matches',
+                  message: _query.isEmpty ? 'Nothing in this group yet.' : 'Nothing matches "$_query".',
+                  action: _query.isEmpty
+                      ? null
+                      : PrimaryButton(
+                          text: 'Add "$_query"',
+                          onPressed: () => _showAddExerciseSheet(context, _query),
+                        ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) => _ExerciseTile(exercise: filtered[index]),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseTile extends StatelessWidget {
+  final Exercise exercise;
+  const _ExerciseTile({required this.exercise});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: () => _showExerciseDetails(context, exercise),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.lime.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.fitness_center_rounded, color: AppColors.lime, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(exercise.name, style: AppText.strong),
+                const SizedBox(height: 2),
+                Text(exercise.muscleGroup, style: AppText.muted),
+              ],
+            ),
+          ),
+          if (exercise.isCustom) const InfoChip('Custom'),
+        ],
       ),
     );
   }
+}
 
-  void _showAddExerciseDialog(BuildContext context, String initialName) {
-    final nameController = TextEditingController(text: initialName);
-    final muscleController = TextEditingController();
-    final notesController = TextEditingController();
+void _showAddExerciseSheet(BuildContext context, String initialName) {
+  final nameController = TextEditingController(text: initialName);
+  final muscleController = TextEditingController();
+  final notesController = TextEditingController();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppTheme.cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('NEW EXERCISE', style: AppText.display(26)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: nameController,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Exercise name'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Add New Exercise',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 20),
-              _buildField('Exercise Name', nameController),
-              const SizedBox(height: 12),
-              _buildField('Muscle Group (e.g., Chest, Legs)', muscleController),
-              const SizedBox(height: 12),
-              _buildField('Notes', notesController, maxLines: 3),
-              const SizedBox(height: 24),
-              PrimaryButton(
-                text: 'Save Exercise',
-                onPressed: () async {
-                  final name = nameController.text.trim();
-                  final muscleGroup = muscleController.text.trim();
-                  if (name.isEmpty || muscleGroup.isEmpty) return;
+          const SizedBox(height: 12),
+          TextField(
+            controller: muscleController,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Muscle group', hintText: 'e.g. Chest, Back/Biceps'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: notesController,
+            maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Notes (optional)'),
+          ),
+          const SizedBox(height: 20),
+          PrimaryButton(
+            text: 'Save exercise',
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final muscleGroup = muscleController.text.trim();
+              final messenger = ScaffoldMessenger.of(context);
+              if (name.isEmpty || muscleGroup.isEmpty) {
+                messenger.showSnackBar(const SnackBar(content: Text('Add a name and a muscle group.')));
+                return;
+              }
 
-                  final navigator = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-                  final added = await context.read<ExerciseProvider>().addExercise(
+              final navigator = Navigator.of(sheetContext);
+              final added = await context.read<ExerciseProvider>().addExercise(
                     name: name,
                     muscleGroup: muscleGroup,
                     notes: notesController.text.trim(),
                   );
-                  if (!added) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('"$name" already exists.')),
-                    );
-                    return;
-                  }
-                  navigator.pop();
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Exercise added successfully!')),
+              if (!added) {
+                messenger.showSnackBar(SnackBar(content: Text('"$name" already exists.')));
+                return;
+              }
+              navigator.pop();
+              messenger.showSnackBar(SnackBar(content: Text('Added $name.')));
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showExerciseDetails(BuildContext context, Exercise exercise) {
+  showModalBottomSheet(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(exercise.name.toUpperCase(), style: AppText.display(28)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, children: [
+              InfoChip(exercise.muscleGroup),
+              if (exercise.isCustom) const InfoChip('Custom'),
+            ]),
+            if (exercise.notes.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text('NOTES', style: AppText.eyebrow),
+              const SizedBox(height: 4),
+              Text(exercise.notes, style: AppText.body),
+            ],
+            if (exercise.isCustom) ...[
+              const SizedBox(height: 20),
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Delete exercise'),
+                onPressed: () async {
+                  final navigator = Navigator.of(sheetContext);
+                  final exercises = context.read<ExerciseProvider>();
+                  final plans = context.read<PlansProvider>();
+                  final ok = await confirmDialog(
+                    sheetContext,
+                    title: 'Delete exercise?',
+                    message: '${exercise.name} will be removed from your plans. Past workouts keep it.',
+                    confirmLabel: 'Delete',
+                    destructive: true,
                   );
+                  if (!ok) return;
+                  await exercises.deleteExercise(exercise.id);
+                  await plans.loadPlans();
+                  navigator.pop();
                 },
               ),
             ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildField(String hint, TextEditingController controller, {int maxLines = 1}) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: AppTheme.primaryBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          ],
         ),
       ),
-      style: const TextStyle(color: AppTheme.textPrimary),
-    );
-  }
-
-  void _showExerciseDetails(BuildContext context, Exercise exercise) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                exercise.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(Icons.fitness_center, color: AppTheme.textSecondary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    exercise.muscleGroup,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (exercise.notes.isNotEmpty) ...[
-                const Text(
-                  'Notes:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  exercise.notes,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
+    ),
+  );
 }

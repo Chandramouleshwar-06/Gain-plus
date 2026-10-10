@@ -75,6 +75,38 @@ class PlanRepository {
     });
   }
 
+  Future<void> rename(String planId, String name) async {
+    final db = await _db;
+    await db.update('plans', touched({'name': name}), where: 'id = ?', whereArgs: [planId]);
+  }
+
+  /// Saves a new exercise order. [itemIds] are plan_exercises IDs, first to last.
+  Future<void> reorder(String planId, List<String> itemIds) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      for (var i = 0; i < itemIds.length; i++) {
+        await txn.update('plan_exercises', touched({'position': i}),
+            where: 'id = ? AND planId = ?', whereArgs: [itemIds[i], planId]);
+      }
+      await _touchPlan(txn, planId);
+    });
+  }
+
+  /// Deletes a plan with its exercises and schedules. Returns the date keys
+  /// of the schedules removed, so their reminders can be cancelled.
+  Future<List<String>> delete(String planId) async {
+    final db = await _db;
+    return db.transaction((txn) async {
+      final schedules = await txn.query('schedules',
+          columns: ['date'], where: 'planId = ? AND $notDeleted', whereArgs: [planId]);
+      await txn.update('schedules', softDeleted(), where: 'planId = ? AND $notDeleted', whereArgs: [planId]);
+      await txn.update('plan_exercises', softDeleted(),
+          where: 'planId = ? AND $notDeleted', whereArgs: [planId]);
+      await txn.update('plans', softDeleted(), where: 'id = ?', whereArgs: [planId]);
+      return schedules.map((s) => s['date'] as String).toList();
+    });
+  }
+
   Future<void> _touchPlan(DatabaseExecutor db, String planId) =>
       db.update('plans', touched({}), where: 'id = ?', whereArgs: [planId]);
 }

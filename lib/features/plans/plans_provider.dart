@@ -25,9 +25,11 @@ class PlansProvider extends ChangeNotifier {
     return entry == null ? null : planById(entry.planId);
   }
 
-  Future<void> createPlan(String name) async {
-    await PlanRepository.instance.create(name);
+  /// Creates an empty plan and returns its ID.
+  Future<String> createPlan(String name) async {
+    final id = await PlanRepository.instance.create(name);
     await loadPlans();
+    return id;
   }
 
   Future<void> scheduleWorkout(DateTime date, String planId, TimeOfDay time, {int repeatWeeks = 1}) async {
@@ -66,6 +68,51 @@ class PlansProvider extends ChangeNotifier {
       }
     }
 
+    await loadPlans();
+  }
+
+  Future<void> renamePlan(String planId, String name) async {
+    await PlanRepository.instance.rename(planId, name);
+    await loadPlans();
+  }
+
+  /// Moves the exercise at [oldIndex] so it ends up at [newIndex].
+  Future<void> reorderPlan(String planId, int oldIndex, int newIndex) async {
+    final plan = planById(planId);
+    if (plan == null) return;
+    final items = [...plan.items];
+    items.insert(newIndex, items.removeAt(oldIndex));
+    // Show the new order right away; the database write follows.
+    plans = [
+      for (final p in plans)
+        p.id == planId ? WorkoutPlan(id: p.id, name: p.name, items: items) : p,
+    ];
+    notifyListeners();
+    await PlanRepository.instance.reorder(planId, items.map((i) => i.id).toList());
+    await loadPlans();
+  }
+
+  /// Deletes the plan, its schedules and their reminders.
+  Future<void> deletePlan(String planId) async {
+    final dates = await PlanRepository.instance.delete(planId);
+    for (final key in dates) {
+      try {
+        await NotificationService.instance.cancelReminder(reminderIdForDate(parseDateKey(key)));
+      } catch (e) {
+        debugPrint('Failed to cancel reminder for $key: $e');
+      }
+    }
+    await loadPlans();
+  }
+
+  /// Removes what's scheduled on [date] and cancels its reminder.
+  Future<void> unschedule(DateTime date) async {
+    await ScheduleRepository.instance.clear(date);
+    try {
+      await NotificationService.instance.cancelReminder(reminderIdForDate(date));
+    } catch (e) {
+      debugPrint('Failed to cancel reminder for ${dateKey(date)}: $e');
+    }
     await loadPlans();
   }
 

@@ -94,6 +94,13 @@ class WorkoutProvider extends ChangeNotifier {
     _changed();
   }
 
+  void removeSet(WorkoutExercise exercise, int setIndex) {
+    if (setIndex < exercise.sets.length) {
+      exercise.sets.removeAt(setIndex);
+      _changed();
+    }
+  }
+
   void updateSet(WorkoutExercise exercise, int setIndex, double weight, int reps) {
     if (setIndex < exercise.sets.length) {
       exercise.sets[setIndex].weight = weight;

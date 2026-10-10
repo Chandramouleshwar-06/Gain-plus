@@ -31,6 +31,40 @@ class PlanRepository {
     return id;
   }
 
+  /// Creates a plan with exercises in order, each as (exerciseId, sets, reps).
+  Future<String> createWithItems(String name, List<(String, int, int?)> items) async {
+    final id = newId();
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.insert('plans', touched({'id': id, 'name': name}));
+      for (var i = 0; i < items.length; i++) {
+        final (exerciseId, sets, reps) = items[i];
+        await txn.insert(
+          'plan_exercises',
+          touched({
+            'id': newId(),
+            'planId': id,
+            'exerciseId': exerciseId,
+            'position': i,
+            'targetSets': sets,
+            'targetReps': reps,
+          }),
+        );
+      }
+    });
+    return id;
+  }
+
+  /// Changes the target sets and reps of one plan exercise.
+  Future<void> updateTargets(String planId, String itemId, int sets, int? reps) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.update('plan_exercises', touched({'targetSets': sets, 'targetReps': reps}),
+          where: 'id = ?', whereArgs: [itemId]);
+      await _touchPlan(txn, planId);
+    });
+  }
+
   /// Appends [exerciseId] to the end of the plan, unless it's already in it.
   Future<void> addExercise(String planId, String exerciseId) async {
     final db = await _db;

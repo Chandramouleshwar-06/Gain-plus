@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/workout_plan.dart';
 import '../exercise/exercise_provider.dart';
+import 'overload.dart';
 import 'workout_provider.dart';
 import 'workout_screen.dart';
 
@@ -36,6 +37,8 @@ Future<void> startPlanWorkout(BuildContext context, WorkoutPlan plan) async {
       exerciseId: item.exerciseId,
       name: exercise.name,
       sets: [for (var i = 0; i < item.targetSets; i++) WorkoutSet()],
+      targetReps: item.targetReps,
+      increment: weightIncrement(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup),
     ));
   }
 

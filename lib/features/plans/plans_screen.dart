@@ -10,6 +10,7 @@ import '../../widgets/ui.dart';
 import '../exercise/exercise_provider.dart';
 import '../workout/workout_launcher.dart';
 import 'plans_provider.dart';
+import 'programs_screen.dart';
 
 /// The Plans section of the Train tab.
 class PlansView extends StatelessWidget {
@@ -22,6 +23,28 @@ class PlansView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       children: [
+        AppCard(
+          color: AppColors.lime,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProgramsScreen())),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: AppColors.onLime),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('BROWSE PROGRAMS', style: AppText.display(22, color: AppColors.onLime)),
+                    const Text('5×5, Push/Pull/Legs, Upper/Lower and more',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onLime)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.onLime),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         PrimaryButton(
           text: 'New plan',
           icon: Icons.add_rounded,
@@ -185,6 +208,7 @@ void showPlanDetails(BuildContext context, String planId) {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: AppCard(
                               color: AppColors.surfaceHigh,
+                              onTap: () => _editTargets(context, planId, item, exercise?.name ?? 'Exercise'),
                               padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
                               child: Row(
                                 children: [
@@ -353,4 +377,79 @@ Future<String?> promptForText(
   controller.dispose();
   final trimmed = result?.trim();
   return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+}
+
+/// Edits how many sets and reps a plan exercise aims for.
+Future<void> _editTargets(BuildContext context, String planId, PlanExercise item, String name) async {
+  var sets = item.targetSets;
+  int? reps = item.targetReps;
+
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) {
+        Widget stepper(String label, String value, VoidCallback? onMinus, VoidCallback? onPlus) => Expanded(
+              child: Column(
+                children: [
+                  Text(label, style: AppText.eyebrow),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filled(
+                        tooltip: 'Less $label',
+                        onPressed: onMinus,
+                        style: IconButton.styleFrom(
+                            backgroundColor: AppColors.surfaceHigh, foregroundColor: AppColors.text),
+                        icon: const Icon(Icons.remove_rounded),
+                      ),
+                      SizedBox(width: 56, child: Text(value, textAlign: TextAlign.center, style: AppText.display(36))),
+                      IconButton.filled(
+                        tooltip: 'More $label',
+                        onPressed: onPlus,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(name.toUpperCase(), style: AppText.display(24)),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    stepper('SETS', '$sets', sets > 1 ? () => setSheetState(() => sets--) : null,
+                        sets < 10 ? () => setSheetState(() => sets++) : null),
+                    stepper(
+                      'REPS',
+                      reps == null ? '—' : '$reps',
+                      reps == null ? null : () => setSheetState(() => reps = reps! <= 1 ? null : reps! - 1),
+                      () => setSheetState(() => reps = (reps ?? 0) + 1),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text('Leave reps at — for timed holds like planks.',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                const SizedBox(height: 16),
+                PrimaryButton(text: 'Save', onPressed: () => Navigator.pop(sheetContext, true)),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+
+  if (saved == true && context.mounted) {
+    await context.read<PlansProvider>().updateTargets(planId, item.id, sets, reps);
+  }
 }

@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/ui.dart';
 import '../profile/profile_provider.dart';
 import '../settings/settings_provider.dart';
 import '../progress/progress_provider.dart';
+import 'overload.dart';
 import 'workout_launcher.dart';
 import 'workout_provider.dart';
 
@@ -175,6 +177,8 @@ class _ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = exercise.sets.where((s) => s.completed).length;
+    final previous = provider.previousSets[exercise.exerciseId] ?? const <SetEntry>[];
+    final suggestion = suggestNext(previous, targetReps: exercise.targetReps, increment: exercise.increment);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -197,10 +201,38 @@ class _ExerciseCard extends StatelessWidget {
               ),
             ],
           ),
+          if (exercise.targetReps != null) ...[
+            const SizedBox(height: 2),
+            Text('Target: ${exercise.sets.length} × ${exercise.targetReps}', style: AppText.muted),
+          ],
+          if (suggestion != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.lime.withValues(alpha: suggestion.increase ? 0.12 : 0.06),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(suggestion.increase ? Icons.trending_up_rounded : Icons.repeat_rounded,
+                      color: const Color(0xFFD8F56A), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      suggestion.message,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD8F56A)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           const _SetGridRow(
             children: [
               Text('SET', style: AppText.eyebrow, textAlign: TextAlign.center),
+              Text('PREVIOUS', style: AppText.eyebrow, maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
               Text('KG', style: AppText.eyebrow),
               Text('REPS', style: AppText.eyebrow),
               Text('DONE', style: AppText.eyebrow, textAlign: TextAlign.center),
@@ -225,6 +257,8 @@ class _ExerciseCard extends StatelessWidget {
                 key: ObjectKey(exercise.sets[i]),
                 set: exercise.sets[i],
                 setNumber: i + 1,
+                previous: i < previous.length ? previous[i] : null,
+                suggestedWeight: suggestion?.weight,
                 onChanged: (weight, reps) => provider.updateSet(exercise, i, weight, reps),
                 onToggle: () => provider.toggleSetComplete(exercise, i,
                     restSeconds: context.read<SettingsProvider>().restAfterSet),
@@ -258,13 +292,15 @@ class _SetGridRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(width: 36, child: children[0]),
-        const SizedBox(width: 8),
-        Expanded(child: children[1]),
-        const SizedBox(width: 8),
-        Expanded(child: children[2]),
-        const SizedBox(width: 8),
-        SizedBox(width: 48, child: children[3]),
+        SizedBox(width: 30, child: children[0]),
+        const SizedBox(width: 6),
+        Expanded(flex: 6, child: children[1]),
+        const SizedBox(width: 6),
+        Expanded(flex: 5, child: children[2]),
+        const SizedBox(width: 6),
+        Expanded(flex: 5, child: children[3]),
+        const SizedBox(width: 6),
+        SizedBox(width: 46, child: children[4]),
       ],
     );
   }
@@ -312,12 +348,20 @@ class _SetRow extends StatefulWidget {
   final void Function(double weight, int reps) onChanged;
   final VoidCallback onToggle;
 
+  /// The same set from last time, if there was one.
+  final SetEntry? previous;
+
+  /// Weight suggested for today, shown as the placeholder.
+  final double? suggestedWeight;
+
   const _SetRow({
     super.key,
     required this.set,
     required this.setNumber,
     required this.onChanged,
     required this.onToggle,
+    this.previous,
+    this.suggestedWeight,
   });
 
   @override
@@ -345,11 +389,26 @@ class _SetRowState extends State<_SetRow> {
     super.dispose();
   }
 
-  void _notifyChanged() {
-    // Accept "2,5" as well as "2.5" for locales with a decimal comma.
-    final weight = double.tryParse(_weightController.text.replaceAll(',', '.')) ?? 0;
-    final reps = int.tryParse(_repsController.text) ?? 0;
-    widget.onChanged(weight, reps);
+  // Accept "2,5" as well as "2.5" for locales with a decimal comma.
+  double get _typedWeight => double.tryParse(_weightController.text.replaceAll(',', '.')) ?? 0;
+  int get _typedReps => int.tryParse(_repsController.text) ?? 0;
+
+  void _notifyChanged() => widget.onChanged(_typedWeight, _typedReps);
+
+  /// Ticking an empty set fills in the placeholder values first, so it
+  /// doesn't save as 0 × 0.
+  void _toggle() {
+    if (!widget.set.completed && _typedWeight == 0 && _typedReps == 0) _usePrevious();
+    widget.onToggle();
+  }
+
+  /// Copies last time's weight and reps into this set.
+  void _usePrevious() {
+    final previous = widget.previous;
+    if (previous == null) return;
+    _weightController.text = formatWeight(widget.suggestedWeight ?? previous.weight);
+    _repsController.text = '${previous.reps}';
+    _notifyChanged();
   }
 
   @override
@@ -365,16 +424,39 @@ class _SetRowState extends State<_SetRow> {
       child: _SetGridRow(
         children: [
           Text('${widget.setNumber}', textAlign: TextAlign.center, style: AppText.display(20, weight: FontWeight.w700)),
+          Semantics(
+            button: widget.previous != null,
+            label: widget.previous == null ? 'No previous set' : 'Use last time\'s values',
+            child: InkWell(
+              onTap: widget.previous == null ? null : _usePrevious,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  widget.previous == null
+                      ? '—'
+                      : '${formatWeight(widget.previous!.weight)}×${widget.previous!.reps}',
+                  style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
           _NumberField(
             controller: _weightController,
-            hint: 'kg',
+            hint: widget.suggestedWeight != null
+                ? formatWeight(widget.suggestedWeight!)
+                : widget.previous != null
+                    ? formatWeight(widget.previous!.weight)
+                    : 'kg',
             label: 'Set ${widget.setNumber} weight in kg',
             decimal: true,
             onChanged: _notifyChanged,
           ),
           _NumberField(
             controller: _repsController,
-            hint: 'reps',
+            hint: widget.previous != null ? '${widget.previous!.reps}' : 'reps',
             label: 'Set ${widget.setNumber} reps',
             onChanged: _notifyChanged,
           ),
@@ -389,7 +471,7 @@ class _SetRowState extends State<_SetRow> {
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: widget.onToggle,
+                onTap: _toggle,
                 child: SizedBox(
                   height: 42,
                   child: completed

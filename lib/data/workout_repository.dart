@@ -117,6 +117,23 @@ class WorkoutRepository {
     return Workout.fromMap(rows.first, entries);
   }
 
+  /// The sets done for [exerciseId] in the most recent workout that had it,
+  /// or an empty list if it was never done.
+  Future<List<SetEntry>> getLastSets(String exerciseId) async {
+    final db = await _db;
+    final entries = await db.rawQuery('''
+      SELECT we.id FROM workout_exercises we
+      JOIN workouts w ON w.id = we.workoutId
+      WHERE we.exerciseId = ? AND we.deletedAt IS NULL AND w.deletedAt IS NULL
+      ORDER BY w.startedAt DESC
+      LIMIT 1
+    ''', [exerciseId]);
+    if (entries.isEmpty) return [];
+    final rows = await db.query('workout_sets',
+        where: 'workoutExerciseId = ? AND $notDeleted', whereArgs: [entries.first['id']], orderBy: 'position');
+    return rows.map(SetEntry.fromMap).toList();
+  }
+
   /// Every completed set with its exercise, in one query.
   Future<List<SetRecord>> getAllSets() async {
     final db = await _db;

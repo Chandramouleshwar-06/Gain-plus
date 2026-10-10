@@ -11,22 +11,34 @@ class WorkoutExercise {
   final String name;
   final List<WorkoutSet> sets;
 
+  /// Reps to aim for per set (from the plan), if any.
+  final int? targetReps;
+
+  /// Weight to add when progressing, in kg.
+  final double increment;
+
   WorkoutExercise({
     required this.exerciseId,
     required this.name,
     required this.sets,
+    this.targetReps,
+    this.increment = 2.5,
   });
 
   Map<String, Object?> toJson() => {
         'exerciseId': exerciseId,
         'name': name,
         'sets': sets.map((s) => s.toJson()).toList(),
+        'targetReps': targetReps,
+        'increment': increment,
       };
 
   factory WorkoutExercise.fromJson(Map<String, dynamic> json) => WorkoutExercise(
         exerciseId: json['exerciseId'] as String,
         name: json['name'] as String,
         sets: (json['sets'] as List).map((s) => WorkoutSet.fromJson(s as Map<String, dynamic>)).toList(),
+        targetReps: json['targetReps'] as int?,
+        increment: (json['increment'] as num?)?.toDouble() ?? 2.5,
       );
 }
 
@@ -67,6 +79,23 @@ class WorkoutProvider extends ChangeNotifier {
 
   bool get isResting => restEndsAt != null;
 
+  /// Sets from the last time each exercise was done, keyed by exercise ID.
+  Map<String, List<SetEntry>> previousSets = {};
+
+  Future<void> _loadPreviousSets() async {
+    final ids = exercises.map((e) => e.exerciseId).toSet();
+    final result = <String, List<SetEntry>>{};
+    try {
+      for (final id in ids) {
+        result[id] = await WorkoutRepository.instance.getLastSets(id);
+      }
+    } catch (e) {
+      debugPrint('Could not load previous sets: $e');
+    }
+    previousSets = result;
+    notifyListeners();
+  }
+
   int get completedSetCount =>
       exercises.fold(0, (sum, e) => sum + e.sets.where((s) => s.completed).length);
 
@@ -89,6 +118,7 @@ class WorkoutProvider extends ChangeNotifier {
           .toList();
       isWorkoutActive = true;
       notifyListeners();
+      await _loadPreviousSets();
     } catch (e) {
       debugPrint('Could not restore active workout: $e');
     }
@@ -100,7 +130,9 @@ class WorkoutProvider extends ChangeNotifier {
     exercises = workoutExercises;
     isWorkoutActive = true;
     startTime = DateTime.now();
+    previousSets = {};
     _changed();
+    _loadPreviousSets();
   }
 
   void addSet(WorkoutExercise exercise) {

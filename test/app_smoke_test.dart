@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gain_plus/main.dart';
@@ -33,7 +34,25 @@ void main() {
 
     await tester.pumpWidget(const MyApp());
     await settle(tester);
-    expect(find.text("LET'S GO"), findsOneWidget);
+
+    // Onboarding on a fresh install.
+    expect(find.text("WHAT'S YOUR NAME?"), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'CR');
+    await tester.pump();
+    await tester.tap(find.text('CONTINUE'));
+    await settle(tester);
+    await tester.tap(find.text('GET STRONGER'));
+    await tester.pump();
+    await tester.tap(find.text('CONTINUE'));
+    await settle(tester);
+    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.text('CONTINUE'));
+    await settle(tester);
+    await tester.tap(find.text("LET'S GO"));
+    await settle(tester);
+
+    expect(find.text("LET'S GO, CR"), findsOneWidget);
+    expect(find.text('0/4'), findsOneWidget, reason: 'weekly target from onboarding');
 
     await tester.tap(find.text('Train'));
     await settle(tester);

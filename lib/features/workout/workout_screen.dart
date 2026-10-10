@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/ui.dart';
+import '../profile/profile_provider.dart';
 import '../progress/progress_provider.dart';
 import 'workout_launcher.dart';
 import 'workout_provider.dart';
@@ -131,6 +132,7 @@ class _Header extends StatelessWidget {
 
     final messenger = ScaffoldMessenger.of(context);
     final progress = context.read<ProgressProvider>();
+    final profile = context.read<ProfileProvider>();
     try {
       await provider.finishWorkout();
     } catch (e) {
@@ -143,6 +145,10 @@ class _Header extends StatelessWidget {
     messenger.showSnackBar(const SnackBar(content: Text('Workout saved. Great job!')));
     // Refresh streak, recent workouts and PRs on Home and Progress.
     await progress.loadData();
+    final achieved = await profile.markAchievedGoals(progress.prKgByExerciseId);
+    if (achieved.isNotEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Goal reached! Check your profile.')));
+    }
   }
 
   Future<void> _confirmDiscard(BuildContext context, WorkoutProvider provider) async {

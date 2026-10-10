@@ -9,6 +9,8 @@ import 'features/workout/workout_provider.dart';
 import 'features/plans/plans_provider.dart';
 import 'features/exercise/exercise_provider.dart';
 import 'features/progress/progress_provider.dart';
+import 'features/profile/onboarding_screen.dart';
+import 'features/profile/profile_provider.dart';
 import 'navigation/app_shell.dart';
 import 'navigation/nav_provider.dart';
 import 'theme/app_theme.dart';
@@ -49,13 +51,26 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PlansProvider()..loadPlans()),
         ChangeNotifierProvider(create: (_) => ExerciseProvider()..loadExercises()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()..loadData()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()..load()),
       ],
       child: MaterialApp(
         title: 'Gain+',
         theme: AppTheme.darkTheme,
-        home: const AppShell(),
+        home: const _Root(),
         debugShowCheckedModeBanner: false,
       ),
     );
+  }
+}
+
+/// Shows onboarding until the profile is set up, then the app.
+class _Root extends StatelessWidget {
+  const _Root();
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>();
+    if (!profile.loaded) return const Scaffold();
+    return profile.needsOnboarding ? const OnboardingScreen() : const AppShell();
   }
 }

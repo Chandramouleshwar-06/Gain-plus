@@ -33,6 +33,28 @@ class Profile {
     this.onboardedAt,
   });
 
+  Profile copyWith({
+    String? name,
+    String? units,
+    String? experience,
+    int? birthYear,
+    double? heightCm,
+    int? workoutsPerWeek,
+    String? primaryGoal,
+    DateTime? onboardedAt,
+  }) {
+    return Profile(
+      name: name ?? this.name,
+      units: units ?? this.units,
+      experience: experience ?? this.experience,
+      birthYear: birthYear ?? this.birthYear,
+      heightCm: heightCm ?? this.heightCm,
+      workoutsPerWeek: workoutsPerWeek ?? this.workoutsPerWeek,
+      primaryGoal: primaryGoal ?? this.primaryGoal,
+      onboardedAt: onboardedAt ?? this.onboardedAt,
+    );
+  }
+
   Map<String, Object?> toMap() {
     return {
       'id': singletonId,

@@ -16,6 +16,9 @@ class ProgressProvider extends ChangeNotifier {
 
   /// Heaviest set per exercise name (ties broken by reps).
   Map<String, PersonalRecord> personalRecords = {};
+
+  /// Heaviest weight lifted per exercise ID, for goals.
+  Map<String, double> prKgByExerciseId = {};
   List<Workout> recentWorkouts = [];
 
   /// Start time of every workout.
@@ -42,7 +45,13 @@ class ProgressProvider extends ChangeNotifier {
     workoutDates = dates;
     workoutDays = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
     streak = calculateStreak(dates, DateTime.now());
-    personalRecords = calculatePersonalRecords(await repo.getAllSets());
+    final sets = await repo.getAllSets();
+    personalRecords = calculatePersonalRecords(sets);
+    prKgByExerciseId = {};
+    for (final set in sets) {
+      final best = prKgByExerciseId[set.exerciseId];
+      if (best == null || set.weight > best) prKgByExerciseId[set.exerciseId] = set.weight;
+    }
     notifyListeners();
   }
 

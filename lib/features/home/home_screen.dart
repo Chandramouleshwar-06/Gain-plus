@@ -9,6 +9,9 @@ import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_provider.dart';
+import '../profile/goal_tile.dart';
+import '../profile/profile_provider.dart';
+import '../profile/profile_screen.dart';
 import '../progress/progress_provider.dart';
 import '../workout/workout_launcher.dart';
 import '../workout/workout_provider.dart';
@@ -40,6 +43,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _Stats(now: now),
               const SizedBox(height: 24),
+              const _Goals(),
               const _RecentWorkouts(),
             ],
           ),
@@ -63,7 +67,7 @@ class _Header extends StatelessWidget {
             children: [
               Text(DateFormat('EEE · d MMM').format(now).toUpperCase(), style: AppText.eyebrow),
               const SizedBox(height: 4),
-              Text("LET'S GO", style: AppText.display(38)),
+              Text(_greeting(context.watch<ProfileProvider>().firstName), style: AppText.display(38), maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -314,7 +318,7 @@ class _Stats extends StatelessWidget {
         Expanded(
           child: StatTile(
             icon: Icons.calendar_today_rounded,
-            value: '${progress.workoutsThisWeek(now)}',
+            value: '${progress.workoutsThisWeek(now)}/${context.watch<ProfileProvider>().weeklyTarget}',
             label: 'this week',
           ),
         ),
@@ -402,6 +406,58 @@ class WorkoutSummaryCard extends StatelessWidget {
             ),
           ),
           if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+String _greeting(String firstName) => firstName.isEmpty ? "LET'S GO" : "LET'S GO, ${firstName.toUpperCase()}";
+
+/// Open goals (up to two), or a prompt to set one.
+class _Goals extends StatelessWidget {
+  const _Goals();
+
+  @override
+  Widget build(BuildContext context) {
+    final goals = context.watch<ProfileProvider>().goals;
+    final open = [...goals.where((g) => g.achievedAt == null), ...goals.where((g) => g.achievedAt != null)];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(
+            title: 'Goals',
+            actionLabel: goals.isEmpty ? 'Add' : 'See all',
+            onAction: () => goals.isEmpty
+                ? showAddGoalSheet(context)
+                : context.read<NavProvider>().goTo(AppTab.profile),
+          ),
+          if (goals.isEmpty)
+            AppCard(
+              onTap: () => showAddGoalSheet(context),
+              child: const Row(
+                children: [
+                  Icon(Icons.flag_rounded, color: AppColors.lime),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Set a goal, like benching 100 kg.', style: AppText.muted)),
+                ],
+              ),
+            )
+          else
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Column(
+                children: [
+                  for (var i = 0; i < open.length && i < 2; i++) ...[
+                    if (i > 0) const Divider(),
+                    GoalTile(goal: open[i]),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );

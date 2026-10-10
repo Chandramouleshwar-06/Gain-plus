@@ -111,4 +111,39 @@ class NotificationService {
   Future<void> cancelReminder(int id) async {
     await _notifications.cancel(id);
   }
+
+  /// Fixed ID so a new rest replaces the previous one.
+  static const _restOverId = 900001;
+
+  /// Alerts when rest is over, even with the phone locked.
+  Future<void> scheduleRestOver(DateTime at) async {
+    final when = tz.TZDateTime.from(at, tz.local);
+    if (!when.isAfter(tz.TZDateTime.now(tz.local))) return;
+    final canScheduleExact = await _android?.canScheduleExactNotifications() ?? true;
+
+    await _notifications.zonedSchedule(
+      _restOverId,
+      'Rest over',
+      'Time for your next set.',
+      when,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'rest_timer',
+          'Rest timer',
+          channelDescription: 'Tells you when rest between sets is over',
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.alarm,
+          timeoutAfter: 60000,
+        ),
+        iOS: DarwinNotificationDetails(interruptionLevel: InterruptionLevel.timeSensitive),
+      ),
+      androidScheduleMode: canScheduleExact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  Future<void> cancelRestOver() => _notifications.cancel(_restOverId);
 }

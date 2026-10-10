@@ -11,6 +11,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_screen.dart';
 import '../progress/progress_provider.dart';
+import '../settings/settings_card.dart';
 import 'goal_tile.dart';
 import 'onboarding_screen.dart';
 import 'profile_provider.dart';
@@ -103,6 +104,9 @@ class ProfileScreen extends StatelessWidget {
                     onAction: () => showLogWeightDialog(context),
                   ),
                   _BodyWeightCard(entries: profile.bodyWeights),
+                  const SizedBox(height: 24),
+                  const SectionHeader(title: 'Settings'),
+                  const SettingsCard(),
                 ],
               ),
             ),

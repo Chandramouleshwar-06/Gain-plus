@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/ui.dart';
 import '../profile/profile_provider.dart';
+import '../settings/settings_provider.dart';
 import '../progress/progress_provider.dart';
 import 'workout_launcher.dart';
 import 'workout_provider.dart';
@@ -30,6 +32,7 @@ class WorkoutScreen extends StatelessWidget {
             child: Column(
               children: [
                 _Header(provider: provider),
+                const _RestTimerCard(),
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -223,7 +226,8 @@ class _ExerciseCard extends StatelessWidget {
                 set: exercise.sets[i],
                 setNumber: i + 1,
                 onChanged: (weight, reps) => provider.updateSet(exercise, i, weight, reps),
-                onToggle: () => provider.toggleSetComplete(exercise, i),
+                onToggle: () => provider.toggleSetComplete(exercise, i,
+                    restSeconds: context.read<SettingsProvider>().restAfterSet),
               ),
             ),
           const SizedBox(height: 6),
@@ -436,6 +440,134 @@ class _NumberField extends StatelessWidget {
           ),
         ),
         onChanged: (_) => onChanged(),
+      ),
+    );
+  }
+}
+
+/// Countdown between sets. Appears when a set is ticked off, buzzes when
+/// rest is over, then shows "GO" for a moment.
+class _RestTimerCard extends StatefulWidget {
+  const _RestTimerCard();
+
+  @override
+  State<_RestTimerCard> createState() => _RestTimerCardState();
+}
+
+class _RestTimerCardState extends State<_RestTimerCard> {
+  Timer? _ticker;
+  DateTime? _goUntil;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _tick() {
+    if (!mounted) return;
+    final provider = context.read<WorkoutProvider>();
+    final endsAt = provider.restEndsAt;
+    if (endsAt != null && !endsAt.isAfter(DateTime.now())) {
+      _goUntil = DateTime.now().add(const Duration(seconds: 3));
+      HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 300), HapticFeedback.heavyImpact);
+      provider.endRest();
+    }
+    if (provider.restEndsAt != null || _goUntil != null) setState(() {});
+    if (_goUntil != null && _goUntil!.isBefore(DateTime.now())) _goUntil = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<WorkoutProvider>();
+    final endsAt = provider.restEndsAt;
+    final showGo = endsAt == null && _goUntil != null && _goUntil!.isAfter(DateTime.now());
+
+    Widget child = const SizedBox(width: double.infinity);
+    if (endsAt != null) {
+      final remaining = endsAt.difference(DateTime.now());
+      final seconds = remaining.inMilliseconds <= 0 ? 0 : (remaining.inMilliseconds / 1000).ceil();
+      final fraction = provider.restTotalSeconds == 0 ? 0.0 : seconds / provider.restTotalSeconds;
+      child = _card(
+        color: AppColors.surface,
+        children: [
+          Row(
+            children: [
+              Text('REST', style: AppText.eyebrow.copyWith(color: AppColors.lime)),
+              const SizedBox(width: 10),
+              Text(
+                formatElapsed(Duration(seconds: seconds)),
+                style: AppText.display(34).copyWith(fontFeatures: AppText.tabular),
+              ),
+              const Spacer(),
+              _restButton('−15', () => provider.adjustRest(-15), label: 'Remove 15 seconds'),
+              const SizedBox(width: 6),
+              _restButton('+15', () => provider.adjustRest(15), label: 'Add 15 seconds'),
+              const SizedBox(width: 6),
+              _restButton('Skip', provider.endRest, primary: true),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ProgressBar(value: fraction, height: 6),
+        ],
+      );
+    } else if (showGo) {
+      child = _card(
+        color: AppColors.lime,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.onLime, size: 28),
+              const SizedBox(width: 8),
+              Text('GO! NEXT SET', style: AppText.display(28, color: AppColors.onLime)),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: child,
+    );
+  }
+
+  Widget _card({required Color color, required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+
+  Widget _restButton(String text, VoidCallback onPressed, {bool primary = false, String? label}) {
+    return Semantics(
+      label: label,
+      button: true,
+      excludeSemantics: label != null,
+      child: SizedBox(
+        height: 44,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            backgroundColor: primary ? AppColors.text : AppColors.surfaceHigh,
+            foregroundColor: primary ? AppColors.onLime : AppColors.text,
+            minimumSize: const Size(50, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: Text(text),
+        ),
       ),
     );
   }

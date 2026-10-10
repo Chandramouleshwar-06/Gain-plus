@@ -11,6 +11,7 @@ import 'features/exercise/exercise_provider.dart';
 import 'features/progress/progress_provider.dart';
 import 'features/profile/onboarding_screen.dart';
 import 'features/profile/profile_provider.dart';
+import 'features/settings/settings_provider.dart';
 import 'navigation/app_shell.dart';
 import 'navigation/nav_provider.dart';
 import 'theme/app_theme.dart';
@@ -52,6 +53,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExerciseProvider()..loadExercises()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()..load()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
       ],
       child: MaterialApp(
         title: 'Gain+',

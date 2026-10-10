@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gain_plus/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gain_plus/services/database_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -16,7 +17,10 @@ void main() {
     databaseFactory = databaseFactoryFfi;
     await _loadAppFonts();
   });
-  setUp(resetDatabase);
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await resetDatabase();
+  });
   tearDown(() => DatabaseService.instance.close());
 
   Future<void> settle(WidgetTester tester) async {
@@ -83,6 +87,14 @@ void main() {
     await settle(tester);
     expect(find.text('FINISH'), findsOneWidget);
     expect(find.text('SQUAT (BARBELL)'), findsOneWidget);
+
+    // Ticking a set starts the rest timer.
+    await tester.tap(find.bySemanticsLabel('Set 1 done').first);
+    await settle(tester);
+    expect(find.text('REST'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await settle(tester);
+    expect(find.text('REST'), findsNothing);
 
     // Back to the tabs: the in-progress bar shows.
     await tester.tap(find.byTooltip('Minimize'));

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/sync_columns.dart';
 import '../../data/workout_repository.dart';
 import '../../models/workout.dart';
+import '../../services/notification_service.dart';
 
 class WorkoutExercise {
   final String exerciseId;
@@ -58,6 +59,14 @@ class WorkoutProvider extends ChangeNotifier {
   bool _isSaving = false;
   Timer? _persistTimer;
 
+  /// When the current rest ends, or null when not resting.
+  DateTime? restEndsAt;
+
+  /// Length of the current rest, for the progress bar.
+  int restTotalSeconds = 0;
+
+  bool get isResting => restEndsAt != null;
+
   int get completedSetCount =>
       exercises.fold(0, (sum, e) => sum + e.sets.where((s) => s.completed).length);
 
@@ -70,6 +79,11 @@ class WorkoutProvider extends ChangeNotifier {
       activePlanId = json['planId'] as String?;
       activePlanName = json['planName'] as String;
       startTime = DateTime.fromMillisecondsSinceEpoch(json['startedAt'] as int);
+      final restEnd = json['restEndsAt'] as int?;
+      if (restEnd != null && restEnd > DateTime.now().millisecondsSinceEpoch) {
+        restEndsAt = DateTime.fromMillisecondsSinceEpoch(restEnd);
+        restTotalSeconds = json['restTotalSeconds'] as int? ?? 0;
+      }
       exercises = (json['exercises'] as List)
           .map((e) => WorkoutExercise.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -109,11 +123,60 @@ class WorkoutProvider extends ChangeNotifier {
     }
   }
 
-  void toggleSetComplete(WorkoutExercise exercise, int setIndex) {
+  /// Ticks a set on or off. Ticking one on starts a rest of [restSeconds]
+  /// when given.
+  void toggleSetComplete(WorkoutExercise exercise, int setIndex, {int? restSeconds}) {
     if (setIndex < exercise.sets.length) {
-      exercise.sets[setIndex].completed = !exercise.sets[setIndex].completed;
-      _changed();
+      final set = exercise.sets[setIndex];
+      set.completed = !set.completed;
+      if (set.completed && restSeconds != null && restSeconds > 0) {
+        startRest(restSeconds);
+      } else {
+        _changed();
+      }
     }
+  }
+
+  void startRest(int seconds) {
+    restTotalSeconds = seconds;
+    restEndsAt = DateTime.now().add(Duration(seconds: seconds));
+    _scheduleRestNotification();
+    _changed();
+  }
+
+  /// Adds (or with a negative value, removes) time from the current rest.
+  void adjustRest(int seconds) {
+    if (restEndsAt == null) return;
+    restEndsAt = restEndsAt!.add(Duration(seconds: seconds));
+    restTotalSeconds = (restTotalSeconds + seconds).clamp(1, 3600);
+    if (!restEndsAt!.isAfter(DateTime.now())) {
+      endRest();
+      return;
+    }
+    _scheduleRestNotification();
+    _changed();
+  }
+
+  /// Stops the rest timer (skipped, or it ran out).
+  void endRest() {
+    if (restEndsAt == null) return;
+    restEndsAt = null;
+    _cancelRestNotification();
+    _changed();
+  }
+
+  void _scheduleRestNotification() {
+    final at = restEndsAt;
+    if (at == null) return;
+    NotificationService.instance.scheduleRestOver(at).catchError((Object e) {
+      debugPrint('Could not schedule rest notification: $e');
+    });
+  }
+
+  void _cancelRestNotification() {
+    NotificationService.instance.cancelRestOver().catchError((Object e) {
+      debugPrint('Could not cancel rest notification: $e');
+    });
   }
 
   /// Saves the workout (completed sets only) and ends it. Throws if saving
@@ -172,6 +235,8 @@ class WorkoutProvider extends ChangeNotifier {
 
   Future<void> _reset() async {
     _persistTimer?.cancel();
+    if (restEndsAt != null) _cancelRestNotification();
+    restEndsAt = null;
     isWorkoutActive = false;
     activePlanId = null;
     activePlanName = '';
@@ -196,6 +261,8 @@ class WorkoutProvider extends ChangeNotifier {
         'planName': activePlanName,
         'startedAt': startTime!.millisecondsSinceEpoch,
         'exercises': exercises.map((e) => e.toJson()).toList(),
+        'restEndsAt': restEndsAt?.millisecondsSinceEpoch,
+        'restTotalSeconds': restTotalSeconds,
       }));
     } catch (e) {
       debugPrint('Could not save active workout: $e');

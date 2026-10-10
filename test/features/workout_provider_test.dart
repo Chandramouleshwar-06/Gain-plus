@@ -50,6 +50,49 @@ void main() {
     expect(details.exercises.map((e) => e.exerciseName), ['Bench'], reason: 'Dips had no completed sets');
   });
 
+  test('ticking a set starts the rest timer; skip and adjust work', () async {
+    final provider = WorkoutProvider();
+    provider.startWorkout(null, 'Arms', [
+      WorkoutExercise(exerciseId: 'ex-1', name: 'Curl', sets: [WorkoutSet(), WorkoutSet()]),
+    ]);
+    final curl = provider.exercises.first;
+
+    provider.toggleSetComplete(curl, 0);
+    expect(provider.isResting, isFalse, reason: 'no rest length given (timer off)');
+
+    provider.toggleSetComplete(curl, 1, restSeconds: 90);
+    expect(provider.isResting, isTrue);
+    final firstEnd = provider.restEndsAt!;
+    expect(firstEnd.difference(DateTime.now()).inSeconds, closeTo(90, 1));
+
+    provider.adjustRest(15);
+    expect(provider.restEndsAt, firstEnd.add(const Duration(seconds: 15)));
+    expect(provider.restTotalSeconds, 105);
+
+    provider.adjustRest(-200);
+    expect(provider.isResting, isFalse, reason: 'removing more than is left ends the rest');
+
+    provider.toggleSetComplete(curl, 1); // untick
+    provider.toggleSetComplete(curl, 1, restSeconds: 60);
+    provider.endRest();
+    expect(provider.isResting, isFalse);
+    await provider.discardWorkout();
+  });
+
+  test('a running rest survives a restart', () async {
+    final provider = WorkoutProvider();
+    provider.startWorkout(null, 'Arms', [
+      WorkoutExercise(exerciseId: 'ex-1', name: 'Curl', sets: [WorkoutSet()]),
+    ]);
+    provider.toggleSetComplete(provider.exercises.first, 0, restSeconds: 120);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    final restored = WorkoutProvider();
+    await restored.restore();
+    expect(restored.isResting, isTrue);
+    expect(restored.restTotalSeconds, 120);
+  });
+
   test('streak counts consecutive days ending today or yesterday', () {
     final now = DateTime(2026, 10, 6, 20);
     DateTime day(int d, [int h = 9]) => DateTime(2026, 10, d, h);

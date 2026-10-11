@@ -6,6 +6,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import 'plans_provider.dart';
+import 'programs_provider.dart';
 
 /// Browse ready-made programs and add one to your plans.
 class ProgramsScreen extends StatelessWidget {
@@ -230,17 +231,27 @@ class _ProgramSheetState extends State<_ProgramSheet> {
     setState(() => _saving = true);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final scheduled = await context.read<PlansProvider>().installProgram(
-          widget.program,
-          weekdays: _schedule ? (_weekdays.toList()..sort()) : const [],
-          weeks: _weeks,
-          time: _time,
-        );
+    final programs = context.read<ProgramsProvider>();
+    final plans = context.read<PlansProvider>();
+
+    // Becomes your own program (and plans), so you can edit it afterwards.
+    final id = await programs.copyBuiltin(widget.program);
+    final copy = programs.byId(id)!;
+    await programs.save(
+      id: id,
+      name: copy.name,
+      weekdays: _weekdays.toList()..sort(),
+      weeks: _weeks,
+      planIds: copy.planIds,
+      reminderMinutes: _time.hour * 60 + _time.minute,
+    );
+    final scheduled = _schedule ? await programs.start(programs.byId(id)!) : 0;
+    await plans.loadPlans();
     navigator.pop(); // sheet
     navigator.pop(); // programs screen
     messenger.showSnackBar(SnackBar(
       content: Text(scheduled == 0
-          ? 'Added ${widget.program.name} to your plans.'
+          ? 'Added ${widget.program.name} to your programs.'
           : 'Added ${widget.program.name} and scheduled $scheduled sessions.'),
     ));
   }

@@ -7,6 +7,7 @@ import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'features/workout/workout_provider.dart';
 import 'features/plans/plans_provider.dart';
+import 'features/plans/programs_provider.dart';
 import 'features/exercise/exercise_provider.dart';
 import 'features/progress/progress_provider.dart';
 import 'features/profile/onboarding_screen.dart';
@@ -51,6 +52,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NavProvider()),
         ChangeNotifierProvider(create: (_) => WorkoutProvider()..restore()),
         ChangeNotifierProvider(create: (_) => PlansProvider()..loadPlans()),
+        ChangeNotifierProvider(create: (_) => ProgramsProvider()..load()),
         ChangeNotifierProvider(create: (_) => ExerciseProvider()..loadExercises()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()..load()),

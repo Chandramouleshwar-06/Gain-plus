@@ -92,6 +92,18 @@ void main() {
         await settle(tester);
         expect(find.text('Create'), findsNothing);
 
+        // The program editor lays out too.
+        await tester.tap(find.text('New program'));
+        await settle(tester);
+        expect(find.text('NEW PROGRAM'), findsOneWidget);
+        await tester.dragUntilVisible(
+          find.text('START PROGRAM'),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -300),
+        );
+        await tester.pageBack();
+        await settle(tester);
+
         await tester.tap(find.text('CALISTHENICS BASIC'));
         await settle(tester);
         expect(find.text('Push Ups'), findsOneWidget);

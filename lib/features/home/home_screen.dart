@@ -10,6 +10,8 @@ import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_provider.dart';
+import '../plans/program_scheduler.dart';
+import '../plans/programs_provider.dart';
 import '../profile/goal_tile.dart';
 import '../profile/profile_provider.dart';
 import '../profile/profile_screen.dart';
@@ -40,6 +42,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _WeekStrip(now: now),
               const SizedBox(height: 20),
+              const _MissedCard(),
               const _TodayCard(),
               const SizedBox(height: 16),
               _Stats(now: now),
@@ -501,6 +504,87 @@ class _Goals extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Offers to catch up on a scheduled workout that was missed recently.
+class _MissedCard extends StatelessWidget {
+  const _MissedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final plans = context.watch<PlansProvider>();
+    final programs = context.watch<ProgramsProvider>();
+    final progress = context.watch<ProgressProvider>();
+    if (!progress.loaded) return const SizedBox.shrink();
+
+    final missed = findMissed(
+      schedules: plans.schedules.values.map((s) => (s.date, s.planId, s.programId)),
+      trainedDays: progress.workoutDays,
+      today: DateTime.now(),
+    );
+    final plan = missed == null ? null : plans.planById(missed.planId);
+    if (missed == null || plan == null) return const SizedBox.shrink();
+
+    final program = programs.byId(missed.programId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.hero),
+          border: Border.all(color: AppColors.orange.withValues(alpha: 0.6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.event_busy_rounded, color: AppColors.orange, size: 20),
+                const SizedBox(width: 8),
+                Text('MISSED ON ${DateFormat('EEE d MMM').format(missed.date).toUpperCase()}',
+                    style: AppText.eyebrow.copyWith(color: AppColors.orange)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(plan.name.toUpperCase(), style: AppText.display(28)),
+            const SizedBox(height: 4),
+            Text(
+              program == null
+                  ? 'Do it today, or skip it.'
+                  : 'Do it today and the rest of ${program.name} shifts along, so you stay in order.',
+              style: AppText.muted,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: PrimaryButton(
+                    text: 'Do it today',
+                    onPressed: () async {
+                      await programs.doMissedToday(missed, plans.schedules);
+                      await plans.loadPlans();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: PrimaryButton(
+                    text: 'Skip',
+                    variant: ButtonVariant.secondary,
+                    onPressed: () async {
+                      await programs.skipMissed(missed);
+                      await plans.loadPlans();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

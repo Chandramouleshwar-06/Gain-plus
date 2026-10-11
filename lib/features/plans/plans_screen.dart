@@ -10,6 +10,9 @@ import '../../widgets/ui.dart';
 import '../exercise/exercise_provider.dart';
 import '../workout/workout_launcher.dart';
 import 'plans_provider.dart';
+import '../../data/program_repository.dart';
+import 'program_editor_screen.dart';
+import 'programs_provider.dart';
 import 'programs_screen.dart';
 
 /// The Plans section of the Train tab.
@@ -19,32 +22,40 @@ class PlansView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plans = context.watch<PlansProvider>().plans;
+    final programs = context.watch<ProgramsProvider>().programs;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       children: [
-        AppCard(
-          color: AppColors.lime,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProgramsScreen())),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome_rounded, color: AppColors.onLime),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('BROWSE PROGRAMS', style: AppText.display(22, color: AppColors.onLime)),
-                    const Text('5×5, Push/Pull/Legs, Upper/Lower and more',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onLime)),
-                  ],
-                ),
+        const SectionHeader(title: 'Programs'),
+        for (final program in programs) ...[
+          _ProgramCard(program: program),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: PrimaryButton(
+                text: 'New program',
+                icon: Icons.add_rounded,
+                variant: ButtonVariant.secondary,
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const ProgramEditorScreen())),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.onLime),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                text: 'Ready-made',
+                icon: Icons.auto_awesome_rounded,
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProgramsScreen())),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 28),
+        const SectionHeader(title: 'Workouts'),
         PrimaryButton(
           text: 'New plan',
           icon: Icons.add_rounded,
@@ -75,6 +86,54 @@ class PlansView extends StatelessWidget {
     if (name == null || !context.mounted) return;
     final id = await context.read<PlansProvider>().createPlan(name);
     if (context.mounted) showPlanDetails(context, id);
+  }
+}
+
+/// A custom program: workouts, training days and whether it's running.
+class _ProgramCard extends StatelessWidget {
+  final CustomProgram program;
+  const _ProgramCard({required this.program});
+
+  @override
+  Widget build(BuildContext context) {
+    final plans = context.watch<PlansProvider>();
+    final names = program.planIds.map((id) => plans.planById(id)?.name).whereType<String>().toList();
+    String? progress;
+    if (program.startedOn != null) {
+      final days = DateTime.now().difference(program.startedOn!).inDays;
+      final week = (days ~/ 7 + 1).clamp(1, program.weeks);
+      progress = 'Week $week of ${program.weeks}';
+    }
+
+    return AppCard(
+      color: program.isActive ? AppColors.surfaceHigh : AppColors.surface,
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => ProgramEditorScreen(programId: program.id))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(program.name.toUpperCase(), style: AppText.display(24, weight: FontWeight.w700))),
+              if (progress != null) InfoChip(progress, foreground: AppColors.lime),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('${weekdaysLabel(program.weekdays)} · ${program.weeks} weeks', style: AppText.muted),
+          if (names.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(names.join(' → '), style: AppText.muted, maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+          if (program.isActive) ...[
+            const SizedBox(height: 10),
+            ProgressBar(
+              value: DateTime.now().difference(program.startedOn!).inDays / (program.weeks * 7),
+              height: 6,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

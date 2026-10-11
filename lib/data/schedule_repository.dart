@@ -13,11 +13,15 @@ class ScheduleEntry {
   /// Reminder time as minutes after midnight, or null for no reminder.
   final int? reminderMinutes;
 
+  /// The custom program that scheduled this day, if any.
+  final String? programId;
+
   ScheduleEntry({
     required this.id,
     required this.date,
     required this.planId,
     this.reminderMinutes,
+    this.programId,
   });
 
   factory ScheduleEntry.fromMap(Map<String, Object?> map) {
@@ -26,6 +30,7 @@ class ScheduleEntry {
       date: map['date'] as String,
       planId: map['planId'] as String,
       reminderMinutes: map['reminderMinutes'] as int?,
+      programId: map['programId'] as String?,
     );
   }
 }
@@ -44,7 +49,7 @@ class ScheduleRepository {
   }
 
   /// Schedules [planId] on [date], replacing whatever was scheduled that day.
-  Future<void> set(DateTime date, String planId, {int? reminderMinutes}) async {
+  Future<void> set(DateTime date, String planId, {int? reminderMinutes, String? programId}) async {
     final key = dateKey(date);
     final db = await _db;
     await db.transaction((txn) async {
@@ -57,6 +62,7 @@ class ScheduleRepository {
           'date': key,
           'planId': planId,
           'reminderMinutes': reminderMinutes,
+          'programId': programId,
         }),
       );
     });
@@ -66,5 +72,14 @@ class ScheduleRepository {
     final db = await _db;
     await db.update('schedules', softDeleted(),
         where: 'date = ? AND $notDeleted', whereArgs: [dateKey(date)]);
+  }
+}
+
+extension ProgramSchedules on ScheduleRepository {
+  /// Removes a program's scheduled days from [from] onwards.
+  Future<void> clearProgram(String programId, {required DateTime from}) async {
+    final db = await DatabaseService.instance.database;
+    await db.update('schedules', softDeleted(),
+        where: 'programId = ? AND date >= ? AND $notDeleted', whereArgs: [programId, dateKey(from)]);
   }
 }

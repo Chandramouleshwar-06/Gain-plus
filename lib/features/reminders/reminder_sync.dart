@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/home_widget_service.dart';
 import '../../utils/date_keys.dart';
 import '../../utils/units.dart';
 import '../plans/plans_provider.dart';
@@ -23,9 +24,10 @@ String recapLine(WeekSummary? week, [Units units = const Units.kg()]) {
   return parts.join(' · ');
 }
 
-/// Keeps scheduled notifications in line with the app's data: re-plans
-/// (debounced) whenever workouts, schedules, the profile or notification
-/// settings change, and when the app comes back to the foreground.
+/// Keeps scheduled notifications and the home-screen widget in line with
+/// the app's data: re-plans (debounced) whenever workouts, schedules, the
+/// profile or notification settings change, and when the app comes back to
+/// the foreground.
 class ReminderSync extends StatefulWidget {
   final Widget child;
   const ReminderSync({super.key, required this.child});
@@ -94,6 +96,15 @@ class _ReminderSyncState extends State<ReminderSync> with WidgetsBindingObserver
       ),
       legacyScheduleDates: schedule.map((s) => s.date).toList(),
     );
+    HomeWidgetService.instance.update(buildHomeWidgetData(
+      now: DateTime.now(),
+      workoutDates: progress.workoutDates,
+      planFor: (day) => switch (plans.planForDate(day)) {
+        null => null,
+        final plan => (plan.name, plan.items.length),
+      },
+      weeklyTarget: profile.weeklyTarget,
+    ));
   }
 
   @override

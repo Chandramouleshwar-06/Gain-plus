@@ -22,11 +22,17 @@ class DatabaseService {
     return _database!;
   }
 
-  /// Closes the database so the next access reopens it. For tests.
-  @visibleForTesting
+  /// Closes the database so the next access reopens it.
   Future<void> close() async {
     await _database?.close();
     _database = null;
+  }
+
+  /// Deletes all local data; the next access creates a fresh database with
+  /// the built-ins. Used when signing out.
+  Future<void> wipe() async {
+    await close();
+    await deleteDatabase(join(await getDatabasesPath(), fileName));
   }
 
   Future<Database> _initDB(String filePath) async {

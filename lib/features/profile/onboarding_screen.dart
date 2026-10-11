@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/equipment.dart';
+import '../account/account_provider.dart';
+import '../account/sign_in_screen.dart';
 import '../../models/profile.dart';
 import '../settings/equipment_screen.dart';
 import '../../theme/app_theme.dart';
@@ -151,6 +153,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         onChanged: (_) => setState(() {}),
                         onSubmitted: (_) => _canContinue ? _next() : null,
                       ),
+                      if (context.read<AccountProvider>().available) ...[
+                        const SizedBox(height: 24),
+                        TextButton.icon(
+                          onPressed: () => Navigator.of(context)
+                              .push(MaterialPageRoute(builder: (_) => const SignInScreen())),
+                          icon: const Icon(Icons.cloud_download_rounded),
+                          label: const Text('Already have an account? Sign in'),
+                        ),
+                      ],
                     ],
                   ),
                   _Step(

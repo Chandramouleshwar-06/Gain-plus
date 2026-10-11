@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'features/account/account_provider.dart';
+import 'features/account/sync_coordinator.dart';
+import 'firebase_options.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'features/workout/workout_provider.dart';
@@ -39,17 +44,31 @@ void main() async {
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
-  runApp(const MyApp());
+
+  // Accounts are optional; if Firebase can't start, the app works signed out.
+  var accountAvailable = false;
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // The local database is the offline copy; no second cache in Firestore.
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: false);
+    accountAvailable = true;
+  } catch (e) {
+    debugPrint('Firebase unavailable: $e');
+  }
+  runApp(MyApp(accountAvailable: accountAvailable));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool accountAvailable;
+
+  const MyApp({super.key, this.accountAvailable = false});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => NavProvider()),
+        ChangeNotifierProvider(create: (_) => AccountProvider(available: accountAvailable)),
         ChangeNotifierProvider(create: (_) => WorkoutProvider()..restore()),
         ChangeNotifierProvider(create: (_) => PlansProvider()..loadPlans()),
         ChangeNotifierProvider(create: (_) => ProgramsProvider()..load()),
@@ -61,7 +80,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Gain+',
         theme: AppTheme.darkTheme,
-        home: const _Root(),
+        home: const SyncCoordinator(child: _Root()),
         debugShowCheckedModeBanner: false,
       ),
     );

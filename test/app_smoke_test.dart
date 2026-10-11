@@ -182,6 +182,34 @@ void main() {
         await settle(tester);
         await tester.tap(find.text('Profile'));
         await settle(tester);
+        // Measurements: log a waist size from the Body screen.
+        await tester.dragUntilVisible(
+          find.text('Measurements & photos'),
+          find.byType(ListView).first,
+          const Offset(0, -200),
+        );
+        await tester.ensureVisible(find.text('Measurements & photos'));
+        await settle(tester);
+        await tester.tap(find.text('Measurements & photos'));
+        await settle(tester);
+        expect(find.text('BODY'), findsOneWidget);
+        await tester.tap(find.text('Log').first);
+        await settle(tester);
+        await tester.enterText(find.byKey(const Key('measure-waist')), '84');
+        await tester.pump();
+        await tester.dragUntilVisible(
+          find.text('SAVE'),
+          find.byType(ListView).last,
+          const Offset(0, -200),
+        );
+        await tester.tap(find.text('SAVE'));
+        await settleUntil(tester, find.text('84 cm'));
+        expect(find.text('84 cm'), findsOneWidget);
+        await tester.pageBack();
+        await settle(tester);
+        await tester.drag(find.byType(ListView).first, const Offset(0, 3000));
+        await settle(tester);
+
         // Health: tests run off-device, so it shows as not available here.
         await tester.dragUntilVisible(
           find.text('Health Connect'),

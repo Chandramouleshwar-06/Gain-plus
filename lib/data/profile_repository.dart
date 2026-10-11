@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import '../models/body.dart';
 import '../models/profile.dart';
 import '../services/database_service.dart';
 import '../utils/date_keys.dart';
@@ -60,5 +61,44 @@ class ProfileRepository {
   Future<void> deleteBodyWeight(String id) async {
     final db = await _db;
     await db.update('body_weights', softDeleted(), where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Body measurements, oldest first.
+  Future<List<BodyMeasurement>> getMeasurements() async {
+    final db = await _db;
+    final rows = await db.query('body_measurements', where: notDeleted, orderBy: 'date, updatedAt');
+    return [
+      for (final r in rows)
+        BodyMeasurement(
+          id: r['id'] as String,
+          date: parseDateKey(r['date'] as String),
+          site: r['site'] as String,
+          value: (r['value'] as num).toDouble(),
+        ),
+    ];
+  }
+
+  /// Saves [values] (site code -> cm or %) for [date]. A site measured
+  /// again on the same day is updated rather than added twice.
+  Future<void> saveMeasurements(DateTime date, Map<String, double> values) async {
+    final db = await _db;
+    final day = dateKey(date);
+    await db.transaction((txn) async {
+      for (final MapEntry(key: site, :value) in values.entries) {
+        final existing = await txn.query('body_measurements',
+            columns: ['id'], where: 'date = ? AND site = ? AND $notDeleted', whereArgs: [day, site]);
+        if (existing.isEmpty) {
+          await txn.insert('body_measurements', touched({'id': newId(), 'date': day, 'site': site, 'value': value}));
+        } else {
+          await txn.update('body_measurements', touched({'value': value}),
+              where: 'id = ?', whereArgs: [existing.first['id']]);
+        }
+      }
+    });
+  }
+
+  Future<void> deleteMeasurement(String id) async {
+    final db = await _db;
+    await db.update('body_measurements', softDeleted(), where: 'id = ?', whereArgs: [id]);
   }
 }

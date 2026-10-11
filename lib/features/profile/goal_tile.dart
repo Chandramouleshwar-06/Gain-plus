@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../models/body.dart';
 import '../../models/profile.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/units.dart';
 import '../../widgets/ui.dart';
+import '../body/body_screen.dart';
 import '../exercise/exercise_provider.dart';
 import '../progress/progress_provider.dart';
 import 'profile_provider.dart';
@@ -15,6 +17,10 @@ String goalTitle(Goal goal, ExerciseProvider exercises, [Units units = const Uni
   return switch (goal.type) {
     Goal.typeLift => '${exercises.byId(goal.exerciseId ?? '')?.name ?? 'Lift'} $target',
     Goal.typeBodyWeight => 'Reach $target body weight',
+    Goal.typeMeasurement => switch (measurementSite(goal.site)) {
+        null => 'Measurement goal',
+        final site => '${site.label} ${formatMeasurement(site, goal.targetValue, units)}',
+      },
     _ => target,
   };
 }
@@ -40,8 +46,14 @@ class GoalTile extends StatelessWidget {
     final status = achieved
         ? 'Done!'
         : current == null
-            ? (goal.type == Goal.typeLift ? 'No sets yet' : 'Log your weight')
-            : units.weight(current);
+            ? switch (goal.type) {
+                Goal.typeLift => 'No sets yet',
+                Goal.typeMeasurement => 'Measure it',
+                _ => 'Log your weight',
+              }
+            : goal.type == Goal.typeMeasurement
+                ? formatMeasurement(measurementSite(goal.site) ?? measurementSites.first, current, units)
+                : units.weight(current);
 
     return InkWell(
       onLongPress: onLongPress,

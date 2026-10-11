@@ -336,6 +336,21 @@ class DatabaseService {
 
     // Estimated calories burned in a gym workout.
     await db.execute('ALTER TABLE workouts ADD COLUMN kcal REAL');
+
+    // Tape measurements (cm) and body fat (%). site is a MeasurementSite code.
+    await db.execute('''
+      CREATE TABLE body_measurements (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        site TEXT NOT NULL,
+        value REAL NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_body_measurements_site ON body_measurements (site, date)');
+
+    // Measurement goals: which site the target is for.
+    await db.execute('ALTER TABLE goals ADD COLUMN site TEXT');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {

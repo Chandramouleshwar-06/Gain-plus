@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/database_service.dart';
+import '../../services/photo_store.dart';
 import '../../sync/firestore_remote_store.dart';
 import '../../sync/sync_engine.dart';
 
@@ -112,6 +113,7 @@ class AccountProvider extends ChangeNotifier {
       if (pending > 0) throw UnsyncedChangesError(pending);
     }
     await DatabaseService.instance.wipe();
+    await PhotoStore.instance.deleteAll();
     await SyncEngine.resetCursors(uid);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_lastSyncKey);

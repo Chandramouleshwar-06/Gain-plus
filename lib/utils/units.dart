@@ -36,6 +36,20 @@ class Units {
     return formatVolume(kg);
   }
 
+  static const cmPerInch = 2.54;
+
+  /// Body measurements follow the weight unit: cm with kg, inches with lb.
+  String get lengthLabel => isLb ? 'in' : 'cm';
+
+  double fromCm(double cm) => isLb ? cm / cmPerInch : cm;
+  double toCm(double value) => isLb ? value * cmPerInch : value;
+
+  /// "81.5" (no unit), rounded to 0.1.
+  String lengthNumber(double cm) => formatWeight((fromCm(cm) * 10).roundToDouble() / 10);
+
+  /// "81.5 cm" / "32.1 in".
+  String length(double cm) => '${lengthNumber(cm)} $lengthLabel';
+
   /// Weight to add when progressing: small for upper body, big for legs.
   double increment({required bool lowerBody}) => isLb ? (lowerBody ? 10 : 5) : (lowerBody ? 5 : 2.5);
 }

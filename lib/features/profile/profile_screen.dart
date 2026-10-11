@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/exercise.dart';
+import '../../models/body.dart';
 import '../../models/profile.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
@@ -12,6 +13,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_screen.dart';
 import '../account/account_card.dart';
+import '../body/body_screen.dart';
 import '../health/health_screen.dart';
 import '../progress/achievements_view.dart';
 import '../progress/progress_provider.dart';
@@ -112,6 +114,8 @@ class ProfileScreen extends StatelessWidget {
                     onAction: () => showLogWeightDialog(context),
                   ),
                   _BodyWeightCard(entries: profile.bodyWeights),
+                  const SizedBox(height: 12),
+                  const _BodyLinkCard(),
                   const SizedBox(height: 24),
                   const SectionHeader(title: 'Achievements'),
                   const AchievementsGrid(),
@@ -408,6 +412,7 @@ class _AddGoalSheet extends StatefulWidget {
 
 class _AddGoalSheetState extends State<_AddGoalSheet> {
   String _type = Goal.typeLift;
+  MeasurementSite _site = measurementSites.first;
   Exercise? _exercise;
   DateTime? _deadline;
   final _target = TextEditingController();
@@ -436,7 +441,11 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
           Wrap(
             spacing: 8,
             children: [
-              for (final (type, label) in [(Goal.typeLift, 'Lift a weight'), (Goal.typeBodyWeight, 'Body weight')])
+              for (final (type, label) in [
+                (Goal.typeLift, 'Lift a weight'),
+                (Goal.typeBodyWeight, 'Body weight'),
+                (Goal.typeMeasurement, 'Measurement'),
+              ])
                 ChoiceChip(
                   label: Text(label),
                   selected: _type == type,
@@ -450,7 +459,30 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          if (_type == Goal.typeLift)
+          if (_type == Goal.typeMeasurement) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final site in measurementSites)
+                  ChoiceChip(
+                    label: Text(site.label),
+                    selected: _site == site,
+                    showCheckmark: false,
+                    labelStyle: TextStyle(color: _site == site ? AppColors.onLime : AppColors.text),
+                    onSelected: (_) => setState(() => _site = site),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              switch (context.watch<ProfileProvider>().latestMeasurement(_site.code)) {
+                null => 'Not measured yet. Log it from Measurements & photos.',
+                final v => 'Current: ${formatMeasurement(_site, v, units)}',
+              },
+              style: AppText.muted,
+            ),
+          ] else           if (_type == Goal.typeLift)
             AppCard(
               color: AppColors.surfaceHigh,
               onTap: _pickExercise,
@@ -477,8 +509,12 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
             controller: _target,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: _type == Goal.typeLift ? 'Target weight to lift' : 'Target body weight',
-              suffixText: units.label,
+              labelText: switch (_type) {
+                Goal.typeLift => 'Target weight to lift',
+                Goal.typeMeasurement => 'Target ${_site.label.toLowerCase()}',
+                _ => 'Target body weight',
+              },
+              suffixText: _type != Goal.typeMeasurement ? units.label : (_site.isPercent ? '%' : units.lengthLabel),
             ),
           ),
           const SizedBox(height: 12),
@@ -542,6 +578,28 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     final prs = context.read<ProgressProvider>().prKgByExerciseId;
 
     final typed = double.tryParse(_target.text.trim().replaceAll(',', '.'));
+    if (_type == Goal.typeMeasurement) {
+      if (typed == null || typed <= 0) {
+        messenger.showSnackBar(const SnackBar(content: Text('Enter a target.')));
+        return;
+      }
+      final current = profile.latestMeasurement(_site.code);
+      if (current == null) {
+        // Progress is measured from where you start, so that's needed first.
+        messenger.showSnackBar(SnackBar(content: Text('Log your ${_site.label.toLowerCase()} first.')));
+        return;
+      }
+      await profile.addGoal(
+        type: Goal.typeMeasurement,
+        site: _site.code,
+        targetValue: _site.isPercent ? typed : profile.units.toCm(typed),
+        startValue: current,
+        deadline: _deadline,
+      );
+      navigator.pop();
+      return;
+    }
+
     final target = typed == null ? null : profile.units.toKg(typed);
     if (target == null || target <= 0) {
       messenger.showSnackBar(const SnackBar(content: Text('Enter a target weight.')));
@@ -579,5 +637,42 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
       );
     }
     navigator.pop();
+  }
+}
+
+/// Opens measurements and progress photos.
+class _BodyLinkCard extends StatelessWidget {
+  const _BodyLinkCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = context.watch<ProfileProvider>();
+    final waist = profile.latestMeasurement('waist');
+    return AppCard(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BodyScreen())),
+      child: Row(
+        children: [
+          const Icon(Icons.straighten_rounded, color: AppColors.lime),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Measurements & photos', style: AppText.strong),
+                Text(
+                  waist != null
+                      ? 'Waist ${profile.units.length(waist)}'
+                      : profile.measurements.isEmpty
+                          ? 'Track waist, arms, body fat and progress photos'
+                          : '${profile.measurements.length} measurements logged',
+                  style: AppText.muted,
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
+      ),
+    );
   }
 }

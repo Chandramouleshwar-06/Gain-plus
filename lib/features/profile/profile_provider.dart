@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/profile_repository.dart';
 import '../../data/sync_columns.dart';
 import '../../data/equipment.dart';
+import '../../models/body.dart';
 import '../../models/profile.dart';
 import '../../utils/units.dart';
 
@@ -12,6 +13,15 @@ class ProfileProvider extends ChangeNotifier {
 
   /// Oldest first.
   List<BodyWeightEntry> bodyWeights = [];
+
+  /// Oldest first.
+  List<BodyMeasurement> measurements = [];
+
+  /// The newest value for a measurement site, or null if never measured.
+  double? latestMeasurement(String site) => measurements.where((m) => m.site == site).lastOrNull?.value;
+
+  /// Values for one site, oldest first.
+  List<BodyMeasurement> measurementsFor(String site) => measurements.where((m) => m.site == site).toList();
 
   bool get needsOnboarding => loaded && profile?.onboardedAt == null;
   int get weeklyTarget => profile?.workoutsPerWeek ?? 3;
@@ -42,6 +52,7 @@ class ProfileProvider extends ChangeNotifier {
     profile = await repo.getProfile();
     goals = await repo.getGoals();
     bodyWeights = await repo.getBodyWeights();
+    measurements = await repo.getMeasurements();
     loaded = true;
     notifyListeners();
   }
@@ -63,6 +74,7 @@ class ProfileProvider extends ChangeNotifier {
   Future<void> addGoal({
     required String type,
     String? exerciseId,
+    String? site,
     required double targetValue,
     double? startValue,
     DateTime? deadline,
@@ -71,6 +83,7 @@ class ProfileProvider extends ChangeNotifier {
       id: newId(),
       type: type,
       exerciseId: exerciseId,
+      site: site,
       targetValue: targetValue,
       startValue: startValue,
       deadline: deadline,
@@ -85,6 +98,18 @@ class ProfileProvider extends ChangeNotifier {
 
   Future<void> logBodyWeight(double kg, {DateTime? date}) async {
     await ProfileRepository.instance.addBodyWeight(date ?? DateTime.now(), kg);
+    await load();
+  }
+
+  /// Saves measurements for [date] (today by default): site code -> cm or %.
+  Future<void> logMeasurements(Map<String, double> values, {DateTime? date}) async {
+    if (values.isEmpty) return;
+    await ProfileRepository.instance.saveMeasurements(date ?? DateTime.now(), values);
+    await load();
+  }
+
+  Future<void> deleteMeasurement(String id) async {
+    await ProfileRepository.instance.deleteMeasurement(id);
     await load();
   }
 
@@ -105,6 +130,7 @@ class ProfileProvider extends ChangeNotifier {
         id: goal.id,
         type: goal.type,
         exerciseId: goal.exerciseId,
+        site: goal.site,
         targetValue: goal.targetValue,
         startValue: goal.startValue,
         deadline: goal.deadline,
@@ -122,6 +148,7 @@ class ProfileProvider extends ChangeNotifier {
     return switch (goal.type) {
       Goal.typeLift => prKgByExerciseId[goal.exerciseId],
       Goal.typeBodyWeight => latestBodyWeight,
+      Goal.typeMeasurement => goal.site == null ? null : latestMeasurement(goal.site!),
       _ => null,
     };
   }

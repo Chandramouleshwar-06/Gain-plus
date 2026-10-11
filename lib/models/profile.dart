@@ -118,9 +118,15 @@ class Goal {
   /// Reach a target body weight.
   static const typeBodyWeight = 'body_weight';
 
+  /// Reach a target measurement on [Goal.site], e.g. waist 80 cm.
+  static const typeMeasurement = 'measurement';
+
   final String id;
   final String type;
   final String? exerciseId;
+
+  /// Measurement site code, for measurement goals.
+  final String? site;
   final double targetValue;
   final double? startValue;
   final DateTime? deadline;
@@ -130,6 +136,7 @@ class Goal {
     required this.id,
     required this.type,
     this.exerciseId,
+    this.site,
     required this.targetValue,
     this.startValue,
     this.deadline,
@@ -141,6 +148,7 @@ class Goal {
       'id': id,
       'type': type,
       'exerciseId': exerciseId,
+      'site': site,
       'targetValue': targetValue,
       'startValue': startValue,
       'deadline': deadline == null ? null : dateKey(deadline!),
@@ -155,6 +163,7 @@ class Goal {
       id: map['id'] as String,
       type: map['type'] as String,
       exerciseId: map['exerciseId'] as String?,
+      site: map['site'] as String?,
       targetValue: (map['targetValue'] as num).toDouble(),
       startValue: (map['startValue'] as num?)?.toDouble(),
       deadline: deadline == null ? null : parseDateKey(deadline),

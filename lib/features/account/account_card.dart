@@ -103,7 +103,8 @@ class AccountCard extends StatelessWidget {
     final ok = await confirmDialog(
       context,
       title: 'Sign out?',
-      message: 'Your data is uploaded first, then removed from this phone. Sign in again to get it all back.',
+      message: 'Your data is uploaded first, then removed from this phone. Sign in again to get it all back. '
+          "Progress photos aren't uploaded, so they'll be deleted.",
       confirmLabel: 'Sign out',
       destructive: true,
     );

@@ -141,6 +141,16 @@ class PlanRepository {
     });
   }
 
+  /// Swaps the exercise of one plan item, keeping its position and targets.
+  Future<void> replaceExercise(String planId, String itemId, String exerciseId) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.update('plan_exercises', touched({'exerciseId': exerciseId}),
+          where: 'id = ?', whereArgs: [itemId]);
+      await _touchPlan(txn, planId);
+    });
+  }
+
   Future<void> _touchPlan(DatabaseExecutor db, String planId) =>
       db.update('plans', touched({}), where: 'id = ?', whereArgs: [planId]);
 }

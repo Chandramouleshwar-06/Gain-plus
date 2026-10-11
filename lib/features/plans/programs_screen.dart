@@ -5,6 +5,11 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../../data/equipment.dart';
+import '../../data/seed_data.dart';
+import '../../models/exercise.dart';
+import '../exercise/exercise_provider.dart';
+import '../profile/profile_provider.dart';
 import 'plans_provider.dart';
 import 'programs_provider.dart';
 
@@ -85,9 +90,28 @@ class _ProgramSheetState extends State<_ProgramSheet> {
   TimeOfDay _time = const TimeOfDay(hour: 18, minute: 0);
   bool _saving = false;
 
+  /// For each exercise needing equipment you don't have: (name, the
+  /// replacement, or null if nothing suitable).
+  List<(String, Exercise?)> _plannedSwaps() {
+    final exercises = context.read<ExerciseProvider>();
+    final available = context.read<ProfileProvider>().availableEquipment;
+    final result = <(String, Exercise?)>[];
+    final seen = <String>{};
+    for (final day in widget.program.days) {
+      for (final e in day.exercises) {
+        final exercise = exercises.byId(builtinExerciseId(e.name));
+        if (exercise == null || !seen.add(e.name)) continue;
+        if (hasEquipmentFor(exercise.equipment, available)) continue;
+        result.add((e.name, exercises.alternativesFor(exercise, available).firstOrNull));
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final program = widget.program;
+    final swaps = _plannedSwaps();
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
       maxChildSize: 0.95,
@@ -103,6 +127,27 @@ class _ProgramSheetState extends State<_ProgramSheet> {
                 const SizedBox(height: 6),
                 Text(program.summary, style: AppText.muted),
                 const SizedBox(height: 16),
+                if (swaps.isNotEmpty) ...[
+                  AppCard(
+                    color: AppColors.orange.withValues(alpha: 0.12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ADJUSTED FOR YOUR EQUIPMENT', style: AppText.eyebrow.copyWith(color: AppColors.orange)),
+                        const SizedBox(height: 8),
+                        for (final (name, replacement) in swaps)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              replacement == null ? '$name (kept; no alternative)' : '$name → ${replacement.name}',
+                              style: AppText.body,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 for (final day in program.days) ...[
                   AppCard(
                     color: AppColors.surfaceHigh,
@@ -235,7 +280,10 @@ class _ProgramSheetState extends State<_ProgramSheet> {
     final plans = context.read<PlansProvider>();
 
     // Becomes your own program (and plans), so you can edit it afterwards.
-    final id = await programs.copyBuiltin(widget.program);
+    final id = await programs.copyBuiltin(widget.program, swaps: {
+      for (final (name, replacement) in _plannedSwaps())
+        if (replacement != null) name: replacement.id,
+    });
     final copy = programs.byId(id)!;
     await programs.save(
       id: id,

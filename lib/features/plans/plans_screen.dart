@@ -7,7 +7,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../../data/equipment.dart';
 import '../exercise/exercise_provider.dart';
+import '../profile/profile_provider.dart';
 import '../workout/workout_launcher.dart';
 import 'plans_provider.dart';
 import '../../data/program_repository.dart';
@@ -236,6 +238,7 @@ void showPlanDetails(BuildContext context, String planId) {
       expand: false,
       builder: (_, scrollController) => Consumer2<PlansProvider, ExerciseProvider>(
         builder: (context, plans, exercises, _) {
+          final equipment = context.watch<ProfileProvider>().availableEquipment;
           final plan = plans.planById(planId);
           if (plan == null) return const SizedBox.shrink();
 
@@ -289,9 +292,25 @@ void showPlanDetails(BuildContext context, String planId) {
                                           '${exercise == null ? '' : ' · ${exercise.muscleGroup}'}',
                                           style: AppText.muted,
                                         ),
+                                        if (exercise != null &&
+                                            missingEquipment(exercise.equipment, equipment).isNotEmpty)
+                                          Text(
+                                            'Needs ${missingEquipment(exercise.equipment, equipment).map(Equipment.shortLabel).join(', ')}',
+                                            style: const TextStyle(
+                                                fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.orange),
+                                          ),
                                       ],
                                     ),
                                   ),
+                                  if (exercise != null)
+                                    IconButton(
+                                      tooltip: 'Swap exercise',
+                                      icon: Icon(Icons.swap_horiz_rounded,
+                                          color: missingEquipment(exercise.equipment, equipment).isEmpty
+                                              ? AppColors.textMuted
+                                              : AppColors.orange),
+                                      onPressed: () => _swapInPlan(context, plan, item.id, exercise),
+                                    ),
                                   IconButton(
                                     tooltip: 'Remove from plan',
                                     icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.danger),
@@ -343,13 +362,22 @@ void _showAddExercise(BuildContext context, WorkoutPlan plan) {
   );
 }
 
-/// Searchable list of exercises, minus [excludeIds].
+/// Searchable list of exercises, minus [excludeIds]. Exercises needing
+/// equipment you don't have are hidden unless you turn the filter off.
+/// With [suggestFor], the best same-muscle swaps you can do come first.
 class ExercisePicker extends StatefulWidget {
   final Set<String> excludeIds;
   final ScrollController? scrollController;
   final ValueChanged<Exercise> onPick;
+  final Exercise? suggestFor;
 
-  const ExercisePicker({super.key, required this.onPick, this.excludeIds = const {}, this.scrollController});
+  const ExercisePicker({
+    super.key,
+    required this.onPick,
+    this.excludeIds = const {},
+    this.scrollController,
+    this.suggestFor,
+  });
 
   @override
   State<ExercisePicker> createState() => _ExercisePickerState();
@@ -357,21 +385,48 @@ class ExercisePicker extends StatefulWidget {
 
 class _ExercisePickerState extends State<ExercisePicker> {
   String _query = '';
+  bool _onlyMine = true;
 
   @override
   Widget build(BuildContext context) {
+    final exercises = context.watch<ExerciseProvider>();
+    final equipment = context.watch<ProfileProvider>().availableEquipment;
+    final hasEverything = equipment.containsAll(Equipment.all);
     final q = _query.toLowerCase();
-    final available = context
-        .watch<ExerciseProvider>()
-        .exercises
+
+    final suggestions = widget.suggestFor == null || q.isNotEmpty
+        ? <Exercise>[]
+        : exercises
+            .alternativesFor(widget.suggestFor!, equipment)
+            .where((e) => !widget.excludeIds.contains(e.id))
+            .take(5)
+            .toList();
+    final list = exercises.exercises
         .where((e) => !widget.excludeIds.contains(e.id))
         .where((e) => q.isEmpty || e.name.toLowerCase().contains(q) || e.muscleGroup.toLowerCase().contains(q))
+        .where((e) => !_onlyMine || hasEquipmentFor(e.equipment, equipment))
         .toList();
+
+    Widget tile(Exercise exercise) {
+      final missing = missingEquipment(exercise.equipment, equipment);
+      return ListTile(
+        title: Text(exercise.name,
+            style: AppText.strong.copyWith(color: missing.isEmpty ? AppColors.text : AppColors.textMuted)),
+        subtitle: Text(
+          missing.isEmpty
+              ? exercise.muscleGroup
+              : '${exercise.muscleGroup} · Needs ${missing.map(Equipment.shortLabel).join(', ')}',
+          style: AppText.muted.copyWith(color: missing.isEmpty ? AppColors.textMuted : AppColors.orange),
+        ),
+        trailing: const Icon(Icons.add_circle_outline_rounded, color: AppColors.lime),
+        onTap: () => widget.onPick(exercise),
+      );
+    }
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: TextField(
             decoration: const InputDecoration(
               hintText: 'Search exercises',
@@ -380,22 +435,36 @@ class _ExercisePickerState extends State<ExercisePicker> {
             onChanged: (v) => setState(() => _query = v),
           ),
         ),
+        if (!hasEverything)
+          SwitchListTile(
+            dense: true,
+            value: _onlyMine,
+            onChanged: (v) => setState(() => _onlyMine = v),
+            title: const Text('Only my equipment', style: AppText.strong),
+          ),
         Expanded(
-          child: available.isEmpty
-              ? const Center(child: Text('No matching exercises', style: AppText.muted))
-              : ListView.builder(
-                  controller: widget.scrollController,
-                  itemCount: available.length,
-                  itemBuilder: (_, index) {
-                    final exercise = available[index];
-                    return ListTile(
-                      title: Text(exercise.name, style: AppText.strong),
-                      subtitle: Text(exercise.muscleGroup, style: AppText.muted),
-                      trailing: const Icon(Icons.add_circle_outline_rounded, color: AppColors.lime),
-                      onTap: () => widget.onPick(exercise),
-                    );
-                  },
+          child: ListView(
+            controller: widget.scrollController,
+            children: [
+              if (suggestions.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
+                  child: Text('SUGGESTED SWAPS', style: AppText.eyebrow),
                 ),
+                for (final e in suggestions) tile(e),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                  child: Text('ALL EXERCISES', style: AppText.eyebrow),
+                ),
+              ],
+              if (list.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: Text('No matching exercises', style: AppText.muted)),
+                ),
+              for (final e in list) tile(e),
+            ],
+          ),
         ),
       ],
     );
@@ -498,4 +567,40 @@ Future<void> _editTargets(BuildContext context, String planId, PlanExercise item
   if (saved == true && context.mounted) {
     await context.read<PlansProvider>().updateTargets(planId, item.id, sets, reps);
   }
+}
+
+/// Swaps [current] in a plan for another exercise, suggesting ones that
+/// work the same muscle with your equipment.
+void _swapInPlan(BuildContext context, WorkoutPlan plan, String itemId, Exercise current) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollController) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('SWAP ${current.name.toUpperCase()}', style: AppText.display(22)),
+            ),
+          ),
+          Expanded(
+            child: ExercisePicker(
+              suggestFor: current,
+              excludeIds: plan.exerciseIds.toSet(),
+              scrollController: scrollController,
+              onPick: (exercise) {
+                context.read<PlansProvider>().replaceExerciseInPlan(plan.id, itemId, exercise.id);
+                Navigator.pop(sheetContext);
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

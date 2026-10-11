@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../data/equipment.dart';
 import '../../models/profile.dart';
+import '../settings/equipment_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
@@ -32,7 +34,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  static const _pageCount = 4;
+  static const _pageCount = 5;
   final _pages = PageController();
   final _name = TextEditingController();
   final _weight = TextEditingController();
@@ -44,6 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _experience = 'beginner';
   int _perWeek = 3;
   Units _units = const Units.kg();
+  List<String> _equipment = Equipment.all;
   bool _saving = false;
 
   @override
@@ -84,6 +87,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             birthYear: int.tryParse(_birthYear.text.trim()),
             onboardedAt: DateTime.now(),
             units: _units.code,
+            equipment: _equipment,
           ),
           bodyWeightKg: parse(_weight) == null ? null : _units.toKg(parse(_weight)!),
         );
@@ -150,7 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ],
                   ),
                   _Step(
-                    eyebrow: 'STEP 2 OF 4',
+                    eyebrow: 'STEP 2 OF 5',
                     title: "WHAT'S YOUR MAIN GOAL?",
                     children: [
                       for (final option in primaryGoalOptions)
@@ -162,7 +166,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ],
                   ),
                   _Step(
-                    eyebrow: 'STEP 3 OF 4',
+                    eyebrow: 'STEP 3 OF 5',
                     title: 'HOW OFTEN WILL YOU TRAIN?',
                     children: [
                       WeeklyTargetPicker(value: _perWeek, onChanged: (v) => setState(() => _perWeek = v)),
@@ -178,7 +182,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ],
                   ),
                   _Step(
-                    eyebrow: 'STEP 4 OF 4 · OPTIONAL',
+                    eyebrow: 'STEP 4 OF 5',
+                    title: 'WHERE DO YOU TRAIN?',
+                    subtitle: 'So plans and swaps only suggest exercises you can do. Change it any time in Settings.',
+                    children: [
+                      EquipmentPresetPicker(
+                        selected: _equipment.toSet(),
+                        onSelected: (e) => setState(() => _equipment = e),
+                      ),
+                    ],
+                  ),
+                  _Step(
+                    eyebrow: 'STEP 5 OF 5 · OPTIONAL',
                     title: 'ABOUT YOU',
                     subtitle: 'Used for body weight goals. You can skip this and add it later.',
                     children: [

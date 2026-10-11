@@ -31,6 +31,7 @@ class ExerciseRepository {
     required String name,
     required String muscleGroup,
     String notes = '',
+    List<String> equipment = const [],
   }) async {
     final exercise = Exercise(
       id: newId(),
@@ -38,6 +39,7 @@ class ExerciseRepository {
       muscleGroup: muscleGroup,
       notes: notes,
       isCustom: true,
+      equipment: equipment,
     );
     final db = await _db;
     try {

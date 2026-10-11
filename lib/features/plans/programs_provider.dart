@@ -42,11 +42,16 @@ class ProgramsProvider extends ChangeNotifier {
 
   /// Copies a ready-made program into your own: one plan per workout day,
   /// plus a custom program you can edit. Returns the new program's ID.
-  Future<String> copyBuiltin(Program program) async {
+  /// [swaps] maps exercise names to replacement exercise IDs, for exercises
+  /// that need equipment you don't have.
+  Future<String> copyBuiltin(Program program, {Map<String, String> swaps = const {}}) async {
     final planIds = <String>[];
     for (final day in program.days) {
+      final ids = <String>{};
       planIds.add(await PlanRepository.instance.createWithItems(day.name, [
-        for (final e in day.exercises) (builtinExerciseId(e.name), e.sets, e.reps),
+        for (final e in day.exercises)
+          // Skip a swap that would repeat an exercise already in the day.
+          if (ids.add(swaps[e.name] ?? builtinExerciseId(e.name))) (swaps[e.name] ?? builtinExerciseId(e.name), e.sets, e.reps),
       ]));
     }
     return save(name: program.name, weekdays: program.defaultWeekdays, weeks: 8, planIds: planIds);

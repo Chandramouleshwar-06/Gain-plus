@@ -22,6 +22,15 @@ class Profile {
   /// When onboarding was finished; null until then.
   final DateTime? onboardedAt;
 
+  /// Equipment codes available, or null when not set (treated as a full gym).
+  final List<String>? equipment;
+
+  /// 'male' or 'female', for calorie targets.
+  final String? sex;
+
+  /// 'sedentary', 'light', 'moderate', 'active' or 'very_active'.
+  final String? activityLevel;
+
   const Profile({
     this.name = '',
     this.units = 'kg',
@@ -31,6 +40,9 @@ class Profile {
     this.workoutsPerWeek = 3,
     this.primaryGoal,
     this.onboardedAt,
+    this.equipment,
+    this.sex,
+    this.activityLevel,
   });
 
   Profile copyWith({
@@ -42,6 +54,9 @@ class Profile {
     int? workoutsPerWeek,
     String? primaryGoal,
     DateTime? onboardedAt,
+    List<String>? equipment,
+    String? sex,
+    String? activityLevel,
   }) {
     return Profile(
       name: name ?? this.name,
@@ -52,6 +67,9 @@ class Profile {
       workoutsPerWeek: workoutsPerWeek ?? this.workoutsPerWeek,
       primaryGoal: primaryGoal ?? this.primaryGoal,
       onboardedAt: onboardedAt ?? this.onboardedAt,
+      equipment: equipment ?? this.equipment,
+      sex: sex ?? this.sex,
+      activityLevel: activityLevel ?? this.activityLevel,
     );
   }
 
@@ -66,6 +84,9 @@ class Profile {
       'workoutsPerWeek': workoutsPerWeek,
       'primaryGoal': primaryGoal,
       'onboardedAt': onboardedAt?.millisecondsSinceEpoch,
+      'equipment': equipment?.join(','),
+      'sex': sex,
+      'activityLevel': activityLevel,
     };
   }
 
@@ -80,6 +101,9 @@ class Profile {
       workoutsPerWeek: map['workoutsPerWeek'] as int,
       primaryGoal: map['primaryGoal'] as String?,
       onboardedAt: onboardedAt == null ? null : DateTime.fromMillisecondsSinceEpoch(onboardedAt),
+      equipment: (map['equipment'] as String?)?.split(',').where((s) => s.isNotEmpty).toList(),
+      sex: map['sex'] as String?,
+      activityLevel: map['activityLevel'] as String?,
     );
   }
 }

@@ -9,6 +9,8 @@ import '../../utils/format.dart';
 import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../../data/equipment.dart';
+import '../exercise/exercise_provider.dart';
 import '../plans/plans_screen.dart';
 import '../profile/profile_provider.dart';
 import '../settings/settings_provider.dart';
@@ -223,6 +225,7 @@ class _ExerciseCard extends StatelessWidget {
           context,
           provider,
           title: 'SWAP ${exercise.name.toUpperCase()}',
+          suggestFor: context.read<ExerciseProvider>().byId(exercise.exerciseId),
           onPick: (replacement) => provider.replaceExercise(index, workoutExerciseFor(replacement)),
         );
       case 'up':
@@ -262,6 +265,10 @@ class _ExerciseCard extends StatelessWidget {
       });
     }
     final units = context.watch<ProfileProvider>().units;
+    final details = context.watch<ExerciseProvider>().byId(exercise.exerciseId);
+    final missing = details == null
+        ? const <String>[]
+        : missingEquipment(details.equipment, context.watch<ProfileProvider>().availableEquipment);
     final suggestion =
         suggestNext(previous, targetReps: exercise.targetReps, lowerBody: exercise.lowerBody, units: units);
     return Container(
@@ -307,6 +314,13 @@ class _ExerciseCard extends StatelessWidget {
               ),
             ],
           ),
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Needs ${missing.map(Equipment.shortLabel).join(', ')}. Tap ⋮ to swap it.',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.orange),
+            ),
+          ],
           if (exercise.targetReps != null) ...[
             const SizedBox(height: 2),
             Text('Target: ${exercise.sets.length} × ${exercise.targetReps}', style: AppText.muted),
@@ -818,6 +832,7 @@ Future<void> _pickExercise(
   WorkoutProvider provider, {
   required ValueChanged<Exercise> onPick,
   String title = 'ADD EXERCISE',
+  Exercise? suggestFor,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -834,6 +849,7 @@ Future<void> _pickExercise(
           ),
           Expanded(
             child: ExercisePicker(
+              suggestFor: suggestFor,
               scrollController: scroll,
               excludeIds: provider.exercises.map((e) => e.exerciseId).toSet(),
               onPick: (exercise) {

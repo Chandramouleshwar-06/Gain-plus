@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/profile_repository.dart';
 import '../../data/sync_columns.dart';
+import '../../data/equipment.dart';
 import '../../models/profile.dart';
 import '../../utils/units.dart';
 
@@ -14,6 +15,13 @@ class ProfileProvider extends ChangeNotifier {
 
   bool get needsOnboarding => loaded && profile?.onboardedAt == null;
   int get weeklyTarget => profile?.workoutsPerWeek ?? 3;
+
+  /// Equipment available; everything when not set yet.
+  Set<String> get availableEquipment => (profile?.equipment ?? Equipment.all).toSet();
+
+  Future<void> setEquipment(List<String> equipment) async {
+    await saveProfile((profile ?? const Profile()).copyWith(equipment: equipment));
+  }
 
   /// The unit weights are shown and typed in.
   Units get units => Units.fromCode(profile?.units);

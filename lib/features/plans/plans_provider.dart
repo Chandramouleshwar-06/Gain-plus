@@ -110,6 +110,11 @@ class PlansProvider extends ChangeNotifier {
     await loadPlans();
   }
 
+  Future<void> replaceExerciseInPlan(String planId, String itemId, String exerciseId) async {
+    await PlanRepository.instance.replaceExercise(planId, itemId, exerciseId);
+    await loadPlans();
+  }
+
   Future<void> addExerciseToPlan(String planId, String exerciseId) async {
     await PlanRepository.instance.addExercise(planId, exerciseId);
     await loadPlans();

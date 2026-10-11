@@ -70,6 +70,12 @@ void main() {
         await tester.tap(find.byTooltip('More'));
         await tester.tap(find.text('CONTINUE'));
         await settle(tester);
+        // Home gym: no machines or cables, so some exercises get flagged.
+        expect(find.text('WHERE DO YOU TRAIN?'), findsOneWidget);
+        await tester.tap(find.text('HOME GYM'));
+        await tester.pump();
+        await tester.tap(find.text('CONTINUE'));
+        await settle(tester);
         await tester.tap(find.text("LET'S GO"));
         await settle(tester);
 
@@ -136,6 +142,8 @@ void main() {
         await settle(tester);
         expect(find.text('FINISH'), findsOneWidget);
         expect(find.text('SQUAT (BARBELL)'), findsOneWidget);
+        // Leg Press needs a machine, which a home gym doesn't have.
+        expect(find.textContaining('Needs a machine'), findsWidgets);
 
         // Log 100 kg x 5 on the first set; ticking it starts the rest timer.
         await tester.enterText(find.byType(TextField).at(0), '100');

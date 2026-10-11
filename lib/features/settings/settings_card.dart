@@ -4,6 +4,8 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../utils/units.dart';
 import '../profile/profile_provider.dart';
+import '../../data/equipment.dart';
+import 'equipment_screen.dart';
 import 'notification_settings_screen.dart';
 import 'settings_provider.dart';
 
@@ -36,6 +38,14 @@ class SettingsCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
               ),
             ),
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: const Icon(Icons.fitness_center_rounded),
+            title: const Text('Equipment', style: AppText.strong),
+            subtitle: Text(_equipmentSummary(profile.availableEquipment), style: AppText.muted),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EquipmentScreen())),
           ),
           const Divider(indent: 16, endIndent: 16),
           SwitchListTile(
@@ -106,4 +116,11 @@ class SettingsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _equipmentSummary(Set<String> have) {
+  for (final (name, _, equipment) in equipmentPresets) {
+    if (have.length == equipment.length && have.containsAll(equipment)) return name;
+  }
+  return '${have.length} of ${Equipment.all.length} items';
 }

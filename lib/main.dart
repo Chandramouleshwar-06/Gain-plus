@@ -18,6 +18,7 @@ import 'features/progress/progress_provider.dart';
 import 'features/profile/onboarding_screen.dart';
 import 'features/profile/profile_provider.dart';
 import 'features/reminders/reminder_sync.dart';
+import 'features/nutrition/nutrition_provider.dart';
 import 'features/settings/settings_provider.dart';
 import 'navigation/app_shell.dart';
 import 'navigation/nav_provider.dart';
@@ -76,6 +77,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProgressProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()..load()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
+        ChangeNotifierProvider(create: (_) => NutritionProvider()..load()),
       ],
       child: MaterialApp(
         title: 'Gain+',

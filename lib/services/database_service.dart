@@ -12,7 +12,7 @@ class DatabaseService {
   static Database? _database;
 
   static const fileName = 'gym_tracker.db';
-  static const schemaVersion = 7;
+  static const schemaVersion = 8;
 
   DatabaseService._init();
 
@@ -45,6 +45,7 @@ class DatabaseService {
       onCreate: (db, version) async {
         await _createSchema(db);
         await _applyV7(db);
+        await _applyV8(db);
         await _seedBuiltins(db);
       },
       onUpgrade: _upgradeDB,
@@ -278,12 +279,53 @@ class DatabaseService {
     await db.execute('CREATE INDEX idx_program_workouts_program ON program_workouts (programId)');
   }
 
+  /// v8: nutrition. Foods you created or found online, and what you ate.
+  Future<void> _applyV8(DatabaseExecutor db) async {
+    // Nutrition per serving; servingGrams lets online foods be logged by weight.
+    await db.execute('''
+      CREATE TABLE foods (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        brand TEXT,
+        servingName TEXT NOT NULL,
+        servingGrams REAL,
+        kcal REAL NOT NULL,
+        protein REAL NOT NULL,
+        carbs REAL NOT NULL,
+        fat REAL NOT NULL,
+        source TEXT NOT NULL DEFAULT 'custom',
+        $syncColumnsSql
+      )
+    ''');
+
+    // Totals are stored with each entry so history never changes.
+    await db.execute('''
+      CREATE TABLE food_logs (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        meal TEXT NOT NULL,
+        foodId TEXT,
+        name TEXT NOT NULL,
+        servings REAL NOT NULL,
+        kcal REAL NOT NULL,
+        protein REAL NOT NULL,
+        carbs REAL NOT NULL,
+        fat REAL NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_food_logs_date ON food_logs (date)');
+  }
+
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 6) {
       await _migrateLegacy(db);
     }
     if (oldVersion < 7) {
       await _applyV7(db);
+    }
+    if (oldVersion < 8) {
+      await _applyV8(db);
     }
   }
 

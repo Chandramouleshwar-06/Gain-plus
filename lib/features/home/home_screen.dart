@@ -9,6 +9,8 @@ import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../nutrition/nutrition_provider.dart';
+import '../nutrition/nutrition_screen.dart';
 import '../plans/plans_provider.dart';
 import '../plans/program_scheduler.dart';
 import '../plans/programs_provider.dart';
@@ -46,6 +48,8 @@ class HomeScreen extends StatelessWidget {
               const _TodayCard(),
               const SizedBox(height: 16),
               _Stats(now: now),
+              const SizedBox(height: 16),
+              const _FoodCard(),
               const SizedBox(height: 24),
               const _Goals(),
               const _RecentWorkouts(),
@@ -585,6 +589,66 @@ class _MissedCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Today's calories and protein; opens the nutrition screen.
+class _FoodCard extends StatelessWidget {
+  const _FoodCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final nutrition = context.watch<NutritionProvider>();
+    final targets = targetsFor(context.watch<ProfileProvider>());
+    // The card always shows today, even if the nutrition screen was left on another day.
+    final today = nutrition.isToday ? nutrition.totals : null;
+
+    return AppCard(
+      onTap: () async {
+        if (!nutrition.isToday) await nutrition.setDay(DateTime.now());
+        if (context.mounted) {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NutritionScreen()));
+        }
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.lime.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.restaurant_rounded, color: AppColors.lime),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('FOOD TODAY', style: AppText.eyebrow),
+                const SizedBox(height: 2),
+                Text(
+                  today == null
+                      ? 'Log your meals'
+                      : targets == null
+                          ? '${today.kcal.round()} kcal · ${today.protein.round()} g protein'
+                          : '${today.kcal.round()} / ${targets.kcal.round()} kcal · '
+                              '${today.protein.round()} / ${targets.protein.round()} g protein',
+                  style: AppText.strong,
+                  maxLines: 2,
+                ),
+                if (targets != null && today != null) ...[
+                  const SizedBox(height: 8),
+                  ProgressBar(value: today.kcal / targets.kcal, height: 6),
+                ],
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
       ),
     );
   }

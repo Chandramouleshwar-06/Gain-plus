@@ -86,6 +86,29 @@ void main() {
           reason: 'weekly target from onboarding',
         );
 
+        // Nutrition: Home card -> screen -> food search -> portion sheet.
+        await tester.dragUntilVisible(
+          find.text('FOOD TODAY'),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -250),
+        );
+        await tester.tap(find.text('FOOD TODAY'));
+        await settle(tester);
+        expect(find.text('NUTRITION'), findsOneWidget);
+        expect(find.text('SET UP YOUR TARGETS'), findsOneWidget);
+        await tester.tap(find.byTooltip('Add to Breakfast'));
+        await settle(tester);
+        expect(find.text('COMMON FOODS'), findsOneWidget);
+        await tester.tap(find.text('Roti / chapati'));
+        await settle(tester);
+        await tester.tap(find.text('ADD TO BREAKFAST').last); // the sheet's button, not the title
+        await settle(tester);
+        await settleUntil(tester, find.text('NUTRITION'));
+        expect(find.byType(Dismissible), findsOneWidget, reason: 'roti logged once under breakfast');
+        await settle(tester); // let the food search screen finish closing
+        await tester.pageBack();
+        await settle(tester);
+
         await tester.tap(find.text('Train'));
         await settle(tester);
         expect(find.text('CALISTHENICS BASIC'), findsOneWidget);

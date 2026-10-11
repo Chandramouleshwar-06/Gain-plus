@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../sync/sync_engine.dart';
 import '../exercise/exercise_provider.dart';
+import '../nutrition/nutrition_provider.dart';
 import '../plans/plans_provider.dart';
 import '../plans/programs_provider.dart';
 import '../profile/profile_provider.dart';
@@ -84,6 +85,7 @@ class _SyncCoordinatorState extends State<SyncCoordinator> with WidgetsBindingOb
       context.read<ProgramsProvider>().load(),
       context.read<ProgressProvider>().loadData(),
       context.read<ProfileProvider>().load(),
+      context.read<NutritionProvider>().load(),
     ]);
   }
 
@@ -103,6 +105,8 @@ class _SyncCoordinatorState extends State<SyncCoordinator> with WidgetsBindingOb
       context.watch<ProfileProvider>().profile?.toMap().toString(),
       context.watch<ProfileProvider>().goals.length,
       context.watch<ProfileProvider>().bodyWeights.length,
+      context.watch<NutritionProvider>().logs.length,
+      context.watch<NutritionProvider>().savedFoods.length,
     ].join('|');
     if (signature != _lastSignature) {
       _lastSignature = signature;

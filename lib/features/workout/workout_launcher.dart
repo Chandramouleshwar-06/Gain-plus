@@ -69,7 +69,7 @@ WorkoutExercise workoutExerciseFor(Exercise exercise, {int sets = 3, int? target
       name: exercise.name,
       sets: [for (var i = 0; i < sets; i++) WorkoutSet()],
       targetReps: targetReps,
-      increment: weightIncrement(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup),
+      lowerBody: isLowerBody(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup),
     );
 
 /// Starts a workout with no exercises; they're added as you go.

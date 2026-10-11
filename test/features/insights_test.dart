@@ -3,6 +3,7 @@ import 'package:gain_plus/data/workout_repository.dart';
 import 'package:gain_plus/features/progress/achievement_tracker.dart';
 import 'package:gain_plus/features/progress/insights.dart';
 import 'package:gain_plus/features/reminders/reminder_sync.dart';
+import 'package:gain_plus/utils/units.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -29,6 +30,7 @@ void main() {
     expect(week.volumeChange, closeTo(0.2, 1e-9));
     expect(week.newPrs, ['Bench']);
     expect(recapLine(week), '2 workouts · 12.0 t lifted · 1 PR');
+    expect(recapLine(week, const Units.lb()), '2 workouts · 26.5k lb lifted · 1 PR');
   });
 
   test('longest streak and weeks the target was hit', () {

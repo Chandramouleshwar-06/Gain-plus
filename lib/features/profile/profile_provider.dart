@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/profile_repository.dart';
 import '../../data/sync_columns.dart';
 import '../../models/profile.dart';
+import '../../utils/units.dart';
 
 class ProfileProvider extends ChangeNotifier {
   bool loaded = false;
@@ -13,6 +14,13 @@ class ProfileProvider extends ChangeNotifier {
 
   bool get needsOnboarding => loaded && profile?.onboardedAt == null;
   int get weeklyTarget => profile?.workoutsPerWeek ?? 3;
+
+  /// The unit weights are shown and typed in.
+  Units get units => Units.fromCode(profile?.units);
+
+  Future<void> setUnits(Units value) async {
+    await saveProfile((profile ?? const Profile()).copyWith(units: value.code));
+  }
   double? get latestBodyWeight => bodyWeights.isEmpty ? null : bodyWeights.last.weightKg;
 
   /// First name for greetings, e.g. "CR".

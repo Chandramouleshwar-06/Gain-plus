@@ -1,8 +1,9 @@
 import '../../models/workout.dart';
-import '../../utils/format.dart';
+import '../../utils/units.dart';
 
 /// What to aim for on an exercise today, based on last time.
 class OverloadSuggestion {
+  /// Suggested weight, in kg.
   final double weight;
 
   /// True when the suggestion is to add weight.
@@ -12,18 +13,20 @@ class OverloadSuggestion {
   OverloadSuggestion(this.weight, this.increase, this.message);
 }
 
-/// Weight to add for a lower-body lift vs. everything else.
-double weightIncrement({required String exerciseName, required String muscleGroup}) {
-  final name = exerciseName.toLowerCase();
-  final heavy = muscleGroup.toLowerCase().contains('legs') || name.contains('deadlift');
-  return heavy ? 5 : 2.5;
-}
+/// Lower-body lifts (legs, deadlifts) progress in bigger steps.
+bool isLowerBody({required String exerciseName, required String muscleGroup}) =>
+    muscleGroup.toLowerCase().contains('legs') || exerciseName.toLowerCase().contains('deadlift');
 
 /// Double progression: once every set from last time reached the target
-/// reps, add [increment]; otherwise stay at that weight and add reps.
-/// Without a target, the lowest rep count from last time is the target.
-/// Returns null when there is nothing to go on (no previous weighted sets).
-OverloadSuggestion? suggestNext(List<SetEntry> previous, {int? targetReps, double increment = 2.5}) {
+/// reps, add one weight step (2.5 / 5 kg or 5 / 10 lb); otherwise stay at
+/// that weight and add reps. Without a target, the lowest rep count from
+/// last time is the target. Returns null when there's nothing to go on.
+OverloadSuggestion? suggestNext(
+  List<SetEntry> previous, {
+  int? targetReps,
+  bool lowerBody = false,
+  Units units = const Units.kg(),
+}) {
   final weighted = previous.where((s) => s.weight > 0 && s.reps > 0).toList();
   if (weighted.isEmpty) return null;
 
@@ -33,16 +36,18 @@ OverloadSuggestion? suggestNext(List<SetEntry> previous, {int? targetReps, doubl
   final allHit = topSets.every((s) => s.reps >= target) && topSets.length >= (previous.length / 2).ceil();
 
   if (allHit && targetReps != null) {
-    final next = topWeight + increment;
+    // Step up in the display unit so lb users get round numbers.
+    final shown = (units.fromKg(topWeight) * 10).roundToDouble() / 10;
+    final next = units.toKg(shown + units.increment(lowerBody: lowerBody));
     return OverloadSuggestion(
       next,
       true,
-      'You hit every rep last time. Try ${formatWeight(next)} kg today.',
+      'You hit every rep last time. Try ${units.weight(next)} today.',
     );
   }
   return OverloadSuggestion(
     topWeight,
     false,
-    'Stay at ${formatWeight(topWeight)} kg and beat last time\'s reps.',
+    "Stay at ${units.weight(topWeight)} and beat last time's reps.",
   );
 }

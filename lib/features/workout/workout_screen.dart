@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/format.dart';
+import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_screen.dart';
@@ -248,7 +248,9 @@ class _ExerciseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final done = exercise.sets.where((s) => s.completed).length;
     final previous = provider.previousSets[exercise.exerciseId] ?? const <SetEntry>[];
-    final suggestion = suggestNext(previous, targetReps: exercise.targetReps, increment: exercise.increment);
+    final units = context.watch<ProfileProvider>().units;
+    final suggestion =
+        suggestNext(previous, targetReps: exercise.targetReps, lowerBody: exercise.lowerBody, units: units);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -320,13 +322,13 @@ class _ExerciseCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          const _SetGridRow(
+          _SetGridRow(
             children: [
-              Text('SET', style: AppText.eyebrow, textAlign: TextAlign.center),
-              Text('PREVIOUS', style: AppText.eyebrow, maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
-              Text('KG', style: AppText.eyebrow),
-              Text('REPS', style: AppText.eyebrow),
-              Text('DONE', style: AppText.eyebrow, textAlign: TextAlign.center),
+              const Text('SET', style: AppText.eyebrow, textAlign: TextAlign.center),
+              const Text('PREVIOUS', style: AppText.eyebrow, maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
+              Text(units.label.toUpperCase(), style: AppText.eyebrow),
+              const Text('REPS', style: AppText.eyebrow),
+              const Text('DONE', style: AppText.eyebrow, textAlign: TextAlign.center),
             ],
           ),
           const SizedBox(height: 6),
@@ -345,7 +347,9 @@ class _ExerciseCard extends StatelessWidget {
               ),
               onDismissed: (_) => provider.removeSet(exercise, i),
               child: _SetRow(
-                key: ObjectKey(exercise.sets[i]),
+                // Rebuilt when the unit changes, so the boxes show the new unit.
+                key: ValueKey((exercise.sets[i], units.code)),
+                units: units,
                 set: exercise.sets[i],
                 setNumber: i + 1,
                 previous: i < previous.length ? previous[i] : null,
@@ -436,6 +440,9 @@ class _ElapsedTimerState extends State<_ElapsedTimer> {
 class _SetRow extends StatefulWidget {
   final WorkoutSet set;
   final int setNumber;
+  final Units units;
+
+  /// Called with the weight in kg.
   final void Function(double weight, int reps) onChanged;
   final VoidCallback onToggle;
 
@@ -449,6 +456,7 @@ class _SetRow extends StatefulWidget {
     super.key,
     required this.set,
     required this.setNumber,
+    required this.units,
     required this.onChanged,
     required this.onToggle,
     this.previous,
@@ -467,7 +475,7 @@ class _SetRowState extends State<_SetRow> {
   void initState() {
     super.initState();
     final weight = widget.set.weight;
-    _weightController = TextEditingController(text: weight == 0 ? '' : formatWeight(weight));
+    _weightController = TextEditingController(text: weight == 0 ? '' : widget.units.number(weight));
     _repsController = TextEditingController(
       text: widget.set.reps == 0 ? '' : widget.set.reps.toString(),
     );
@@ -481,7 +489,8 @@ class _SetRowState extends State<_SetRow> {
   }
 
   // Accept "2,5" as well as "2.5" for locales with a decimal comma.
-  double get _typedWeight => double.tryParse(_weightController.text.replaceAll(',', '.')) ?? 0;
+  double get _typedWeight =>
+      widget.units.toKg(double.tryParse(_weightController.text.replaceAll(',', '.')) ?? 0);
   int get _typedReps => int.tryParse(_repsController.text) ?? 0;
 
   void _notifyChanged() => widget.onChanged(_typedWeight, _typedReps);
@@ -497,7 +506,7 @@ class _SetRowState extends State<_SetRow> {
   void _usePrevious() {
     final previous = widget.previous;
     if (previous == null) return;
-    _weightController.text = formatWeight(widget.suggestedWeight ?? previous.weight);
+    _weightController.text = widget.units.number(widget.suggestedWeight ?? previous.weight);
     _repsController.text = '${previous.reps}';
     _notifyChanged();
   }
@@ -526,7 +535,7 @@ class _SetRowState extends State<_SetRow> {
                 child: Text(
                   widget.previous == null
                       ? '—'
-                      : '${formatWeight(widget.previous!.weight)}×${widget.previous!.reps}',
+                      : '${widget.units.number(widget.previous!.weight)}×${widget.previous!.reps}',
                   style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -537,11 +546,11 @@ class _SetRowState extends State<_SetRow> {
           _NumberField(
             controller: _weightController,
             hint: widget.suggestedWeight != null
-                ? formatWeight(widget.suggestedWeight!)
+                ? widget.units.number(widget.suggestedWeight!)
                 : widget.previous != null
-                    ? formatWeight(widget.previous!.weight)
-                    : 'kg',
-            label: 'Set ${widget.setNumber} weight in kg',
+                    ? widget.units.number(widget.previous!.weight)
+                    : widget.units.label,
+            label: 'Set ${widget.setNumber} weight in ${widget.units.label}',
             decimal: true,
             onChanged: _notifyChanged,
           ),

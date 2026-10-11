@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../utils/date_keys.dart';
+import '../../utils/units.dart';
 import '../plans/plans_provider.dart';
 import '../profile/profile_provider.dart';
 import '../progress/achievement_tracker.dart';
@@ -12,11 +13,11 @@ import 'reminder_engine.dart';
 import 'reminder_planner.dart';
 
 /// "4 workouts · 12.4 t lifted · 2 PRs" for the weekly recap.
-String recapLine(WeekSummary? week) {
+String recapLine(WeekSummary? week, [Units units = const Units.kg()]) {
   if (week == null || week.workouts == 0) return 'No workouts logged this week. Next week is a fresh start.';
   final parts = [
     week.workouts == 1 ? '1 workout' : '${week.workouts} workouts',
-    '${(week.volume / 1000).toStringAsFixed(1)} t lifted',
+    '${units.volume(week.volume)} lifted',
     if (week.newPrs.isNotEmpty) week.newPrs.length == 1 ? '1 PR' : '${week.newPrs.length} PRs',
   ];
   return parts.join(' · ');
@@ -89,7 +90,7 @@ class _ReminderSyncState extends State<ReminderSync> with WidgetsBindingObserver
         weeklyTarget: profile.weeklyTarget,
         schedule: schedule,
         prefs: settings.reminderPrefs,
-        thisWeekRecap: recapLine(progress.thisWeek),
+        thisWeekRecap: recapLine(progress.thisWeek, profile.units),
       ),
       legacyScheduleDates: schedule.map((s) => s.date).toList(),
     );

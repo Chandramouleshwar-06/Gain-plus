@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/ui.dart';
+import '../profile/profile_provider.dart';
 import 'progress_provider.dart';
 
 /// One past workout with every exercise and set.
@@ -58,8 +59,8 @@ class WorkoutDetailScreen extends StatelessWidget {
                   Expanded(
                     child: StatTile(
                       icon: Icons.trending_up_rounded,
-                      value: workout.totalVolume.toStringAsFixed(0),
-                      label: 'kg volume',
+                      value: context.watch<ProfileProvider>().units.volume(workout.totalVolume),
+                      label: 'volume',
                     ),
                   ),
                 ],
@@ -81,7 +82,7 @@ class WorkoutDetailScreen extends StatelessWidget {
                                 width: 28,
                                 child: Text('${set.position + 1}', style: AppText.muted),
                               ),
-                              Text('${formatWeight(set.weight)} kg × ${set.reps}', style: AppText.strong),
+                              Text('${context.watch<ProfileProvider>().units.weight(set.weight)} × ${set.reps}', style: AppText.strong),
                             ],
                           ),
                         ),

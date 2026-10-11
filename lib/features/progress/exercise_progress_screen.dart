@@ -7,6 +7,8 @@ import '../../utils/strength.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/ui.dart';
+import '../profile/profile_provider.dart';
+import 'package:provider/provider.dart';
 
 enum _Metric { e1rm, topWeight, volume }
 
@@ -48,13 +50,16 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
             return const Center(child: CircularProgressIndicator(color: AppColors.lime));
           }
           final sessions = snapshot.data ?? [];
+          final units = context.watch<ProfileProvider>().units;
           if (sessions.isEmpty) {
             return const EmptyState(icon: Icons.show_chart_rounded, title: 'No data yet', message: 'Log this exercise to see your progress.');
           }
 
           final bestE1rm = sessions.map(_bestE1rm).reduce((a, b) => a > b ? a : b);
           final topWeight = sessions.map(_topWeight).reduce((a, b) => a > b ? a : b);
-          final points = [for (final s in sessions) (s.date, double.parse(_value(s).toStringAsFixed(1)))];
+          final points = [
+            for (final s in sessions) (s.date, double.parse(units.fromKg(_value(s)).toStringAsFixed(1))),
+          ];
           final metricLabel = switch (_metric) {
             _Metric.e1rm => 'estimated one-rep max',
             _Metric.topWeight => 'heaviest set',
@@ -68,14 +73,14 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: StatTile(icon: Icons.bolt_rounded, value: formatWeight(bestE1rm.roundToDouble()), label: 'best est. 1RM (kg)')),
+                  Expanded(child: StatTile(icon: Icons.bolt_rounded, value: units.number(bestE1rm.roundToDouble()), label: 'best est. 1RM (${units.label})')),
                   const SizedBox(width: 10),
                   Expanded(
                     child: StatTile(
                       icon: Icons.emoji_events_rounded,
                       iconColor: AppColors.orange,
-                      value: formatWeight(topWeight),
-                      label: 'heaviest (kg)',
+                      value: units.number(topWeight),
+                      label: 'heaviest (${units.label})',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -120,9 +125,10 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
                       )
                     else
                       TrendLineChart(
+                        unit: units.label,
                         points: points,
                         semanticsLabel: '${widget.name} $metricLabel over ${points.length} sessions, '
-                            'from ${formatWeight(points.first.$2)} to ${formatWeight(points.last.$2)} kg.',
+                            'from ${formatWeight(points.first.$2)} to ${formatWeight(points.last.$2)} ${units.label}.',
                       ),
                   ],
                 ),
@@ -146,7 +152,7 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          s.sets.map((set) => '${formatWeight(set.weight)}×${set.reps}').join('   '),
+                          s.sets.map((set) => '${units.number(set.weight)}×${set.reps}').join('   '),
                           style: AppText.strong,
                         ),
                       ),

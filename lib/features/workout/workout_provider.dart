@@ -14,15 +14,15 @@ class WorkoutExercise {
   /// Reps to aim for per set (from the plan), if any.
   final int? targetReps;
 
-  /// Weight to add when progressing, in kg.
-  final double increment;
+  /// Lower-body lifts progress in bigger weight steps.
+  final bool lowerBody;
 
   WorkoutExercise({
     required this.exerciseId,
     required this.name,
     required this.sets,
     this.targetReps,
-    this.increment = 2.5,
+    this.lowerBody = false,
   });
 
   Map<String, Object?> toJson() => {
@@ -30,7 +30,7 @@ class WorkoutExercise {
         'name': name,
         'sets': sets.map((s) => s.toJson()).toList(),
         'targetReps': targetReps,
-        'increment': increment,
+        'lowerBody': lowerBody,
       };
 
   factory WorkoutExercise.fromJson(Map<String, dynamic> json) => WorkoutExercise(
@@ -38,7 +38,8 @@ class WorkoutExercise {
         name: json['name'] as String,
         sets: (json['sets'] as List).map((s) => WorkoutSet.fromJson(s as Map<String, dynamic>)).toList(),
         targetReps: json['targetReps'] as int?,
-        increment: (json['increment'] as num?)?.toDouble() ?? 2.5,
+        // Workouts saved by the previous version stored a kg increment.
+        lowerBody: json['lowerBody'] as bool? ?? ((json['increment'] as num?) ?? 0) >= 5,
       );
 }
 
@@ -155,7 +156,7 @@ class WorkoutProvider extends ChangeNotifier {
       name: replacement.name,
       sets: [for (var i = 0; i < (setCount == 0 ? 1 : setCount); i++) WorkoutSet()],
       targetReps: replacement.targetReps,
-      increment: replacement.increment,
+      lowerBody: replacement.lowerBody,
     );
     _changed();
     _loadPreviousSets();

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/profile.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
 import 'profile_provider.dart';
 
@@ -42,6 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _goal;
   String _experience = 'beginner';
   int _perWeek = 3;
+  Units _units = const Units.kg();
   bool _saving = false;
 
   @override
@@ -81,8 +83,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             heightCm: parse(_height),
             birthYear: int.tryParse(_birthYear.text.trim()),
             onboardedAt: DateTime.now(),
+            units: _units.code,
           ),
-          bodyWeightKg: parse(_weight),
+          bodyWeightKg: parse(_weight) == null ? null : _units.toKg(parse(_weight)!),
         );
   }
 
@@ -179,7 +182,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     title: 'ABOUT YOU',
                     subtitle: 'Used for body weight goals. You can skip this and add it later.',
                     children: [
-                      _NumberInput(controller: _weight, label: 'Body weight', suffix: 'kg', decimal: true),
+                      Row(
+                        children: [
+                          const Expanded(child: Text('UNITS', style: AppText.eyebrow)),
+                          SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            segments: const [
+                              ButtonSegment(value: false, label: Text('kg')),
+                              ButtonSegment(value: true, label: Text('lb')),
+                            ],
+                            selected: {_units.isLb},
+                            onSelectionChanged: (s) =>
+                                setState(() => _units = s.first ? const Units.lb() : const Units.kg()),
+                            style: SegmentedButton.styleFrom(
+                              selectedBackgroundColor: AppColors.lime,
+                              selectedForegroundColor: AppColors.onLime,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _NumberInput(controller: _weight, label: 'Body weight', suffix: _units.label, decimal: true),
                       const SizedBox(height: 12),
                       _NumberInput(controller: _height, label: 'Height', suffix: 'cm'),
                       const SizedBox(height: 12),

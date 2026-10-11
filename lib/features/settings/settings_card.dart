@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../utils/units.dart';
+import '../profile/profile_provider.dart';
 import 'notification_settings_screen.dart';
 import 'settings_provider.dart';
 
@@ -12,10 +14,30 @@ class SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
+    final profile = context.watch<ProfileProvider>();
     return AppCard(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         children: [
+          ListTile(
+            leading: const Icon(Icons.straighten_rounded),
+            title: const Text('Units', style: AppText.strong),
+            trailing: SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: false, label: Text('kg')),
+                ButtonSegment(value: true, label: Text('lb')),
+              ],
+              selected: {profile.units.isLb},
+              onSelectionChanged: (s) => profile.setUnits(s.first ? const Units.lb() : const Units.kg()),
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: AppColors.lime,
+                selectedForegroundColor: AppColors.onLime,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          const Divider(indent: 16, endIndent: 16),
           SwitchListTile(
             value: settings.restTimerEnabled,
             onChanged: settings.setRestTimerEnabled,

@@ -3,15 +3,15 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/profile.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/format.dart';
+import '../../utils/units.dart';
 import '../../widgets/ui.dart';
 import '../exercise/exercise_provider.dart';
 import '../progress/progress_provider.dart';
 import 'profile_provider.dart';
 
 /// Human-readable goal title, e.g. "Bench Press (Barbell) 100 kg".
-String goalTitle(Goal goal, ExerciseProvider exercises) {
-  final target = '${formatWeight(goal.targetValue)} kg';
+String goalTitle(Goal goal, ExerciseProvider exercises, [Units units = const Units.kg()]) {
+  final target = units.weight(goal.targetValue);
   return switch (goal.type) {
     Goal.typeLift => '${exercises.byId(goal.exerciseId ?? '')?.name ?? 'Lift'} $target',
     Goal.typeBodyWeight => 'Reach $target body weight',
@@ -31,6 +31,7 @@ class GoalTile extends StatelessWidget {
     final profile = context.watch<ProfileProvider>();
     final prs = context.watch<ProgressProvider>().prKgByExerciseId;
     final exercises = context.watch<ExerciseProvider>();
+    final units = profile.units;
 
     final current = profile.currentValue(goal, prs);
     final progress = current == null ? 0.0 : ProfileProvider.goalProgress(goal, current);
@@ -40,7 +41,7 @@ class GoalTile extends StatelessWidget {
         ? 'Done!'
         : current == null
             ? (goal.type == Goal.typeLift ? 'No sets yet' : 'Log your weight')
-            : '${formatWeight(current)} kg';
+            : units.weight(current);
 
     return InkWell(
       onLongPress: onLongPress,
@@ -56,7 +57,7 @@ class GoalTile extends StatelessWidget {
                   const Icon(Icons.emoji_events_rounded, color: AppColors.orange, size: 18),
                   const SizedBox(width: 6),
                 ],
-                Expanded(child: Text(goalTitle(goal, exercises), style: AppText.strong)),
+                Expanded(child: Text(goalTitle(goal, exercises, units), style: AppText.strong)),
                 const SizedBox(width: 8),
                 Text(status, style: AppText.muted),
               ],

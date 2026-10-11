@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
+import '../utils/units.dart';
 
 const _gridColor = Color(0xFF26262A);
 const _axisLabel = TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600);
@@ -13,18 +14,22 @@ String compactNumber(double value) => NumberFormat.compact().format(value);
 
 /// Weekly volume bars, oldest week on the left. Touch a bar for its value.
 class VolumeBarChart extends StatelessWidget {
-  final List<(DateTime, double)> weeks;
-  const VolumeBarChart({super.key, required this.weeks});
+  /// (week start, volume in kg), oldest first.
+  final List<(DateTime, double)> weeksKg;
+  final Units units;
+  const VolumeBarChart({super.key, required List<(DateTime, double)> weeks, this.units = const Units.kg()})
+      : weeksKg = weeks;
 
   @override
   Widget build(BuildContext context) {
+    final weeks = [for (final (start, kg) in weeksKg) (start, units.fromKg(kg))];
     final peak = weeks.fold(0.0, (m, w) => w.$2 > m ? w.$2 : m);
     // Round axis steps (e.g. 250, 500, 1k) with room above the tallest bar.
     final interval = niceInterval(peak == 0 ? 1000 : peak / 3);
     final maxY = (peak / interval).floor() * interval + interval;
     return Semantics(
       label: 'Weekly volume for the last ${weeks.length} weeks. '
-          'This week: ${weeks.isEmpty ? 0 : weeks.last.$2.toStringAsFixed(0)} kg.',
+          'This week: ${weeks.isEmpty ? 0 : weeks.last.$2.toStringAsFixed(0)} ${units.label}.',
       child: SizedBox(
         height: 180,
         child: BarChart(
@@ -79,7 +84,7 @@ class VolumeBarChart extends StatelessWidget {
                   const TextStyle(fontSize: 12, color: AppColors.textMuted),
                   children: [
                     TextSpan(
-                      text: '${NumberFormat.decimalPattern().format(rod.toY.round())} kg',
+                      text: '${NumberFormat.decimalPattern().format(rod.toY.round())} ${units.label}',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text),
                     ),
                   ],

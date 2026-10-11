@@ -291,6 +291,7 @@ class _BodyWeightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final units = context.watch<ProfileProvider>().units;
     if (entries.isEmpty) {
       return AppCard(
         onTap: () => showLogWeightDialog(context),
@@ -309,15 +310,15 @@ class _BodyWeightCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(formatWeight(latest.weightKg), style: AppText.display(44)),
+              Text(units.number(latest.weightKg), style: AppText.display(44)),
               const SizedBox(width: 6),
-              const Padding(padding: EdgeInsets.only(bottom: 6), child: Text('kg', style: AppText.muted)),
+              Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(units.label, style: AppText.muted)),
               const Spacer(),
               if (entries.length > 1)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    '${change >= 0 ? '+' : '−'}${formatWeight(double.parse(change.abs().toStringAsFixed(1)))} kg since start',
+                    '${change >= 0 ? '+' : '−'}${units.weight(change.abs())} since start',
                     style: AppText.muted,
                   ),
                 ),
@@ -326,9 +327,10 @@ class _BodyWeightCard extends StatelessWidget {
           if (entries.length >= 2) ...[
             const SizedBox(height: 12),
             TrendLineChart(
-              points: [for (final e in entries) (e.date, e.weightKg)],
+              points: [for (final e in entries) (e.date, units.fromKg(e.weightKg))],
+              unit: units.label,
               semanticsLabel: 'Body weight over ${entries.length} weigh-ins, from '
-                  '${formatWeight(entries.first.weightKg)} to ${formatWeight(latest.weightKg)} kg.',
+                  '${units.weight(entries.first.weightKg)} to ${units.weight(latest.weightKg)}.',
             ),
           ],
           const SizedBox(height: 8),
@@ -347,7 +349,7 @@ class _BodyWeightCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: Text(DateFormat('EEE d MMM y').format(entry.date), style: AppText.muted)),
-                    Text('${formatWeight(entry.weightKg)} kg', style: AppText.strong),
+                    Text(units.weight(entry.weightKg), style: AppText.strong),
                   ],
                 ),
               ),
@@ -366,15 +368,15 @@ Future<void> showLogWeightDialog(BuildContext context) async {
     builder: (_) => TextPromptDialog(
       title: 'Log body weight',
       action: 'Save',
-      initial: provider.latestBodyWeight == null ? '' : formatWeight(provider.latestBodyWeight!),
-      suffix: 'kg',
+      initial: provider.latestBodyWeight == null ? '' : provider.units.number(provider.latestBodyWeight!),
+      suffix: provider.units.label,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
     ),
   );
   final value = text == null ? null : double.tryParse(text.replaceAll(',', '.'));
   if (value == null || value <= 0) return;
-  await provider.logBodyWeight(value);
+  await provider.logBodyWeight(provider.units.toKg(value));
   if (!context.mounted) return;
   final achieved = await provider.markAchievedGoals(context.read<ProgressProvider>().prKgByExerciseId);
   if (achieved.isNotEmpty && context.mounted) {
@@ -415,6 +417,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
   @override
   Widget build(BuildContext context) {
     final latestWeight = context.watch<ProfileProvider>().latestBodyWeight;
+    final units = context.watch<ProfileProvider>().units;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
@@ -459,17 +462,17 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
             TextField(
               controller: _currentWeight,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Current weight', suffixText: 'kg'),
+              decoration: InputDecoration(labelText: 'Current weight', suffixText: units.label),
             ),
           ] else
-            Text('Current: ${formatWeight(latestWeight)} kg', style: AppText.muted),
+            Text('Current: ${units.weight(latestWeight)}', style: AppText.muted),
           const SizedBox(height: 12),
           TextField(
             controller: _target,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: _type == Goal.typeLift ? 'Target weight to lift' : 'Target body weight',
-              suffixText: 'kg',
+              suffixText: units.label,
             ),
           ),
           const SizedBox(height: 12),
@@ -532,7 +535,8 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     final profile = context.read<ProfileProvider>();
     final prs = context.read<ProgressProvider>().prKgByExerciseId;
 
-    final target = double.tryParse(_target.text.trim().replaceAll(',', '.'));
+    final typed = double.tryParse(_target.text.trim().replaceAll(',', '.'));
+    final target = typed == null ? null : profile.units.toKg(typed);
     if (target == null || target <= 0) {
       messenger.showSnackBar(const SnackBar(content: Text('Enter a target weight.')));
       return;
@@ -553,7 +557,8 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     } else {
       var current = profile.latestBodyWeight;
       if (current == null) {
-        current = double.tryParse(_currentWeight.text.trim().replaceAll(',', '.'));
+        final typedCurrent = double.tryParse(_currentWeight.text.trim().replaceAll(',', '.'));
+        current = typedCurrent == null ? null : profile.units.toKg(typedCurrent);
         if (current == null) {
           messenger.showSnackBar(const SnackBar(content: Text('Enter your current weight.')));
           return;

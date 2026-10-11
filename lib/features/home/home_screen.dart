@@ -368,7 +368,7 @@ class _Stats extends StatelessWidget {
         Expanded(
           child: StatTile(
             icon: Icons.trending_up_rounded,
-            value: formatVolume(progress.totalVolume),
+            value: context.watch<ProfileProvider>().units.volume(progress.totalVolume),
             label: 'lifted',
           ),
         ),
@@ -439,7 +439,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${DateFormat('EEE d MMM').format(workout.startedAt)} · '
-                  '${formatDuration(workout.durationSeconds)} · ${formatVolume(workout.totalVolume)}',
+                  '${formatDuration(workout.durationSeconds)} · ${context.watch<ProfileProvider>().units.volume(workout.totalVolume)}',
                   style: AppText.muted,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

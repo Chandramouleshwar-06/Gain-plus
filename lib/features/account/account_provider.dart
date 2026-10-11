@@ -126,18 +126,7 @@ class AccountProvider extends ChangeNotifier {
     }
     _signingOut = true;
     try {
-      // Cursors first: if anything below fails, the next sync downloads
-      // everything again instead of leaving this phone empty.
-      await SyncEngine.resetCursors(uid);
-      await DatabaseService.instance.wipe();
-      try {
-        await PhotoStore.instance.deleteAll();
-      } catch (e) {
-        debugPrint('Could not delete progress photos: $e');
-      }
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_lastSyncKey);
-      lastSyncedAt = null;
+      await _clearDevice(uid);
       await FirebaseAuth.instance.signOut();
       if (_googleReady) await GoogleSignIn.instance.signOut();
       user = null;
@@ -146,6 +135,56 @@ class AccountProvider extends ChangeNotifier {
     }
     notifyListeners();
     onDataPulled?.call(); // reload everything from the now-empty database
+  }
+
+  /// Deletes the account: everything in the cloud, the sign-in itself, and
+  /// this phone's copy. Throws [AccountError] if Firebase wants a fresh
+  /// sign-in first (the cloud data is already gone by then).
+  Future<void> deleteAccount() async {
+    final current = FirebaseAuth.instance.currentUser;
+    final engine = _engine;
+    if (current == null || engine == null) return;
+    final uid = current.uid;
+    await _inFlight; // let a running sync finish first
+    _signingOut = true;
+    try {
+      // Cloud data first: once the sign-in is deleted, the rules no longer
+      // allow touching it.
+      await engine.remote.deleteAll(uid, syncedTables);
+      await _clearDevice(uid);
+      try {
+        await current.delete();
+      } on FirebaseAuthException catch (e) {
+        await FirebaseAuth.instance.signOut();
+        if (e.code == 'requires-recent-login') {
+          throw AccountError('Your data is deleted. To remove the sign-in too, sign in again and delete once more.');
+        }
+        throw AccountError(_friendly(e.code));
+      } finally {
+        if (_googleReady) await GoogleSignIn.instance.signOut();
+        user = null;
+        notifyListeners();
+        onDataPulled?.call();
+      }
+    } finally {
+      _signingOut = false;
+    }
+  }
+
+  /// Wipes this phone's data for [uid]. Cursors go first: if anything
+  /// below fails, the next sync downloads everything again instead of
+  /// leaving this phone empty.
+  Future<void> _clearDevice(String uid) async {
+    await SyncEngine.resetCursors(uid);
+    await DatabaseService.instance.wipe();
+    try {
+      await PhotoStore.instance.deleteAll();
+    } catch (e) {
+      debugPrint('Could not delete progress photos: $e');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastSyncKey);
+    lastSyncedAt = null;
   }
 
   Future<T> _authCall<T>(Future<T> Function() call) async {

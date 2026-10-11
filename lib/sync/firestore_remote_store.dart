@@ -40,4 +40,19 @@ class FirestoreRemoteStore implements RemoteStore {
         },
     ];
   }
+
+  @override
+  Future<void> deleteAll(String uid, List<String> tables) async {
+    for (final table in tables) {
+      while (true) {
+        final page = await _collection(uid, table).limit(400).get(const GetOptions(source: Source.server)).timeout(_timeout);
+        if (page.docs.isEmpty) break;
+        final batch = _db.batch();
+        for (final doc in page.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit().timeout(_timeout);
+      }
+    }
+  }
 }

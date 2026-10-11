@@ -78,13 +78,20 @@ class AccountCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: account.syncing ? null : () => _signOut(context, account),
-              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-              child: const Text('Sign out'),
-            ),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: account.syncing ? null : () => _signOut(context, account),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                child: const Text('Sign out'),
+              ),
+              TextButton(
+                onPressed: account.syncing ? null : () => _deleteAccount(context, account),
+                style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+                child: const Text('Delete account'),
+              ),
+            ],
           ),
         ],
       ),
@@ -123,6 +130,28 @@ class AccountCard extends StatelessWidget {
         destructive: true,
       );
       if (discard) await account.signOut(discardUnsynced: true);
+    }
+  }
+
+  Future<void> _deleteAccount(BuildContext context, AccountProvider account) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await confirmDialog(
+      context,
+      title: 'Delete your account?',
+      message: 'This permanently deletes your account and everything backed up with it, '
+          "and removes your data from this phone. It can't be undone.",
+      confirmLabel: 'Delete everything',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await account.deleteAccount();
+      messenger.showSnackBar(const SnackBar(content: Text('Your account and data were deleted.')));
+    } on AccountError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      debugPrint('Delete account failed: $e');
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't delete your account. Check your connection and try again.")));
     }
   }
 }

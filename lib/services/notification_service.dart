@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import '../theme/app_theme.dart';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
@@ -23,7 +24,8 @@ class NotificationService {
       debugPrint('Could not determine local timezone, falling back to UTC: $e');
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // White silhouette: Android draws status-bar icons as a mask.
+    const androidSettings = AndroidInitializationSettings('@drawable/ic_stat_gainplus');
     const iosSettings = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
@@ -65,6 +67,7 @@ class NotificationService {
           channelDescription: channel.description,
           importance: channel == ReminderChannel.workouts ? Importance.max : Importance.defaultImportance,
           priority: channel == ReminderChannel.workouts ? Priority.high : Priority.defaultPriority,
+          color: AppColors.lime,
         ),
         iOS: const DarwinNotificationDetails(),
       ),
@@ -102,6 +105,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.alarm,
+          color: AppColors.lime,
           timeoutAfter: 60000,
         ),
         iOS: DarwinNotificationDetails(interruptionLevel: InterruptionLevel.timeSensitive),

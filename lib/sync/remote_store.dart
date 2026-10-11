@@ -7,6 +7,9 @@ abstract class RemoteStore {
   /// Rows written after [syncedAfter] (server time, ms), oldest first, each
   /// including its `syncedAt`.
   Future<List<Map<String, Object?>>> changedSince(String uid, String table, int syncedAfter);
+
+  /// Deletes everything stored for [uid] in [tables] (account deletion).
+  Future<void> deleteAll(String uid, List<String> tables);
 }
 
 /// In-memory store for tests and for running without a backend.
@@ -27,6 +30,13 @@ class MemoryRemoteStore implements RemoteStore {
     final rows = (_tables['$uid/$table'] ?? {}).values.where((r) => (r['syncedAt'] as int) > syncedAfter).toList()
       ..sort((a, b) => (a['syncedAt'] as int).compareTo(b['syncedAt'] as int));
     return rows.map((r) => {...r}).toList();
+  }
+
+  @override
+  Future<void> deleteAll(String uid, List<String> tables) async {
+    for (final table in tables) {
+      _tables.remove('$uid/$table');
+    }
   }
 
   /// Everything stored for [table], for test assertions.

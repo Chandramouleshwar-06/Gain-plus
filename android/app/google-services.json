@@ -37,6 +37,13 @@
             {
               "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "170093244597-3hm4vcpjsa84qvlmr35chcd15f07cbua.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tracker1.gainplus"
+              }
             }
           ]
         }
@@ -50,6 +57,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "170093244597-409js34khs3tual63l6nqbjdruhud1r8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tracker1.gainplus",
+            "certificate_hash": "9e966f005e4eeb72f74f25f2a52abb8a93a11013"
+          }
+        },
         {
           "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
           "client_type": 3
@@ -66,6 +81,13 @@
             {
               "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "170093244597-3hm4vcpjsa84qvlmr35chcd15f07cbua.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tracker1.gainplus"
+              }
             }
           ]
         }

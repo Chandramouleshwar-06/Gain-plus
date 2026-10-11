@@ -2,7 +2,7 @@ name: gain_plus
 description: "Gain+ - Your fitness tracking companion"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: ^3.11.1

@@ -66,6 +66,14 @@
           }
         },
         {
+          "client_id": "170093244597-alrlq1hk8293da5v8bhp1or4vrmvmqo0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tracker1.gainplus",
+            "certificate_hash": "f92ff706ff30888de90491f778a6d8354c393fe8"
+          }
+        },
+        {
           "client_id": "170093244597-ij135eebr5nejk7m9ssph94v74e8pck2.apps.googleusercontent.com",
           "client_type": 3
         }

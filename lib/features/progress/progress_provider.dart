@@ -92,6 +92,7 @@ class ProgressProvider extends ChangeNotifier {
     personalRecords = calculatePersonalRecords(sets);
     prKgByExerciseId = {};
     for (final set in sets) {
+      if (set.reps <= 0) continue; // empty sets saved by older versions
       final best = prKgByExerciseId[set.exerciseId];
       if (best == null || set.weight > best) prKgByExerciseId[set.exerciseId] = set.weight;
     }
@@ -155,6 +156,7 @@ class ProgressProvider extends ChangeNotifier {
   static Map<String, PersonalRecord> calculatePersonalRecords(List<SetRecord> sets) {
     final records = <String, PersonalRecord>{};
     for (final set in sets) {
+      if (set.reps <= 0) continue;
       final current = records[set.exerciseName];
       if (current == null ||
           set.weight > current.weight ||

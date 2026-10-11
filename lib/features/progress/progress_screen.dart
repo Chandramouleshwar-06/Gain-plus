@@ -143,9 +143,17 @@ class _LiftRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              lift.isBodyweight ? '${lift.prReps} reps' : '${units.weight(lift.prWeight)} × ${lift.prReps}',
-              style: AppText.display(20, weight: FontWeight.w700),
+            const SizedBox(width: 8),
+            // Shrinks rather than overflowing with large system text.
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  lift.isBodyweight ? '${lift.prReps} reps' : '${units.weight(lift.prWeight)} × ${lift.prReps}',
+                  style: AppText.display(20, weight: FontWeight.w700),
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),

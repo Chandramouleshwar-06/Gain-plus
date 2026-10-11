@@ -55,18 +55,27 @@ class HealthProvider extends ChangeNotifier {
 
   /// Asks for access. Returns true when connected.
   Future<bool> connect() async {
-    status = await _service.status();
-    if (status == HealthStatus.notInstalled || status == HealthStatus.needsUpdate) {
-      await _service.install();
-      notifyListeners();
+    try {
+      status = await _service.status();
+      if (status == HealthStatus.notInstalled || status == HealthStatus.needsUpdate) {
+        await _service.install();
+        notifyListeners();
+        return false;
+      }
+      if (status != HealthStatus.available) return false;
+      await _service.requestPermissions();
+      // Some types may be left unticked; steps and workouts are what's needed.
+      final granted = await _service.hasPermissions();
+      await _setEnabled(granted);
+      error = granted ? null : 'Allow at least steps and exercise in Health Connect to connect.';
+      return granted;
+    } catch (e) {
+      debugPrint('Health connect failed: $e');
+      error = "Couldn't connect to Health Connect.";
       return false;
+    } finally {
+      notifyListeners();
     }
-    if (status != HealthStatus.available) return false;
-    final granted = await _service.requestPermissions();
-    await _setEnabled(granted);
-    error = granted ? null : 'Access was not given. You can allow it in Health Connect.';
-    notifyListeners();
-    return granted;
   }
 
   Future<void> disconnect() async {
@@ -99,8 +108,10 @@ class HealthProvider extends ChangeNotifier {
       today = await _service.day(now);
       weekSteps = [
         for (var i = 6; i >= 0; i--)
-          (start.subtract(Duration(days: i)),
-              await _service.steps(start.subtract(Duration(days: i)), start.subtract(Duration(days: i - 1))) ?? 0),
+          (DateTime(start.year, start.month, start.day - i),
+              await _service.steps(DateTime(start.year, start.month, start.day - i),
+                      DateTime(start.year, start.month, start.day - i + 1)) ??
+                  0),
       ];
       imported = await importWorkouts(since: start.subtract(const Duration(days: 30)), body: body);
       await importWeight(since: start.subtract(const Duration(days: 30)));
@@ -124,7 +135,7 @@ class HealthProvider extends ChangeNotifier {
       records,
       alreadyImported: await repo.importedExternalIds(),
       body: body,
-      newId: newId,
+      idFor: (r) => stableId('health-workout:${r.id}'),
     );
     for (final a in activities) {
       await repo.save(a);
@@ -140,7 +151,7 @@ class HealthProvider extends ChangeNotifier {
     final repo = ProfileRepository.instance;
     final existing = await repo.getBodyWeights();
     if (existing.any((w) => dateKey(w.date) == dateKey(date))) return false;
-    await repo.addBodyWeight(date, kg, source: 'health');
+    await repo.addBodyWeight(date, kg, source: 'health', id: stableId('health-weight:${dateKey(date)}'));
     return true;
   }
 

@@ -13,3 +13,15 @@ String formatDuration(int seconds) {
   final rest = minutes % 60;
   return rest == 0 ? '${minutes ~/ 60} h' : '${minutes ~/ 60} h $rest min';
 }
+
+/// Parses a typed number. A comma is a decimal point ("82,5" = 82.5)
+/// unless it groups thousands ("1,200" = 1200, "12,500.5" = 12500.5).
+double? parseDecimal(String text) {
+  var s = text.trim().replaceAll(' ', '');
+  if (s.contains('.') || RegExp(r'^\d{1,3}(,\d{3})+$').hasMatch(s)) {
+    s = s.replaceAll(',', '');
+  } else {
+    s = s.replaceAll(',', '.');
+  }
+  return double.tryParse(s);
+}

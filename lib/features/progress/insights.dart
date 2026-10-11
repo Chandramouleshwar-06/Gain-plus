@@ -53,7 +53,7 @@ WeekSummary summarizeWeek({
   final names = <String, String>{};
   for (final s in sets) {
     final date = s.date;
-    if (date == null || s.weight <= 0) continue;
+    if (date == null || s.weight <= 0 || s.reps <= 0) continue;
     names[s.exerciseId] = s.exerciseName;
     if (date.isBefore(weekStart)) {
       if (s.weight > (bestBefore[s.exerciseId] ?? 0)) bestBefore[s.exerciseId] = s.weight;

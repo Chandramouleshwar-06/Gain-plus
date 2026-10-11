@@ -1,3 +1,4 @@
+import 'dart:math';
 import '../../data/activity_types.dart';
 import '../../models/activity.dart';
 import '../../services/health_service.dart';
@@ -47,12 +48,14 @@ String healthTypeForActivity(String code) => _healthTypes[code]?.first ?? 'OTHER
 
 /// Health workouts as activities, skipping ones this app wrote and ones
 /// already imported. Calories come from the record (e.g. a watch) when it
-/// has them, otherwise they're estimated.
+/// has them, otherwise they're estimated. Record calories are capped at
+/// twice the estimate: the plugin adds up every calorie record in the
+/// session's time, which can include resting burn or duplicates.
 List<Activity> activitiesFromHealth(
   List<HealthWorkoutRecord> records, {
   required Set<String> alreadyImported,
   required BodyMetrics body,
-  required String Function() newId,
+  required String Function(HealthWorkoutRecord record) idFor,
 }) {
   final result = <Activity>[];
   for (final r in records) {
@@ -61,15 +64,15 @@ List<Activity> activitiesFromHealth(
     if (duration.inMinutes < 1) continue;
     final type = activityType(activityCodeForHealth(r.type));
     final distanceKm = r.distanceMeters == null ? null : r.distanceMeters! / 1000;
+    final estimate =
+        estimateKcal(met: metFor(type, duration: duration, distanceKm: distanceKm), body: body, duration: duration);
     result.add(Activity(
-      id: newId(),
+      id: idFor(r),
       type: type.code,
       startedAt: r.start,
       durationSeconds: duration.inSeconds,
       distanceMeters: type.hasDistance ? r.distanceMeters : null,
-      kcal: r.kcal != null && r.kcal! > 0
-          ? r.kcal!.roundToDouble()
-          : estimateKcal(met: metFor(type, duration: duration, distanceKm: distanceKm), body: body, duration: duration),
+      kcal: r.kcal != null && r.kcal! > 0 ? min(r.kcal!, estimate * 2).roundToDouble() : estimate,
       source: 'health',
       externalId: r.id,
     ));

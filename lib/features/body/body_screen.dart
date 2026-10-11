@@ -12,6 +12,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/charts.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../../utils/format.dart';
 import '../profile/profile_provider.dart';
 import '../progress/progress_provider.dart';
 
@@ -265,6 +266,10 @@ class _LogMeasurementsSheet extends StatefulWidget {
 
 class _LogMeasurementsSheetState extends State<_LogMeasurementsSheet> {
   final _controllers = {for (final s in measurementSites) s.code: TextEditingController()};
+  bool _saving = false;
+
+  /// Shown in the sheet (a snackbar would be hidden behind it).
+  String? _error;
 
   @override
   void dispose() {
@@ -281,16 +286,32 @@ class _LogMeasurementsSheetState extends State<_LogMeasurementsSheet> {
     final navigator = Navigator.of(context);
     final values = <String, double>{};
     for (final site in measurementSites) {
-      final v = double.tryParse(_controllers[site.code]!.text.trim().replaceAll(',', '.'));
+      final v = parseDecimal(_controllers[site.code]!.text);
       if (v == null || v <= 0) continue;
       values[site.code] = site.isPercent ? v : profile.units.toCm(v);
     }
     if (values.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Fill in at least one measurement.')));
+      setState(() => _error = 'Fill in at least one measurement.');
       return;
     }
-    await profile.logMeasurements(values);
-    final achieved = await profile.markAchievedGoals(prs);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final List<Object> achieved;
+    try {
+      await profile.logMeasurements(values);
+      achieved = await profile.markAchievedGoals(prs);
+    } catch (e) {
+      debugPrint('Could not save measurements: $e');
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = "Couldn't save. Please try again.";
+        });
+      }
+      return;
+    }
     navigator.pop();
     messenger.showSnackBar(SnackBar(
         content: Text(achieved.isNotEmpty ? 'Saved. Goal reached, nice work!' : 'Measurements saved.')));
@@ -333,7 +354,12 @@ class _LogMeasurementsSheetState extends State<_LogMeasurementsSheet> {
                   ),
                 ),
               const SizedBox(height: 8),
-              PrimaryButton(text: 'Save', onPressed: _save),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(_error!, style: const TextStyle(color: AppColors.orange)),
+                ),
+              PrimaryButton(text: _saving ? 'Saving...' : 'Save', onPressed: _saving ? null : _save),
             ],
           ),
         ),

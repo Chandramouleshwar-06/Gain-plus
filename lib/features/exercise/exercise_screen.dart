@@ -34,13 +34,8 @@ class _ExercisesViewState extends State<ExercisesView> {
     final provider = context.watch<ExerciseProvider>();
     final q = _query.toLowerCase();
     final filtered = provider.exercises.where((e) {
-      final matchesQuery =
-          q.isEmpty ||
-          e.name.toLowerCase().contains(q) ||
-          e.muscleGroup.toLowerCase().contains(q);
-      final matchesGroup =
-          _muscleGroup == null ||
-          e.muscleGroup.split('/').map((g) => g.trim()).contains(_muscleGroup);
+      final matchesQuery = q.isEmpty || e.name.toLowerCase().contains(q) || e.muscleGroup.toLowerCase().contains(q);
+      final matchesGroup = _muscleGroup == null || e.muscleGroup.split('/').map((g) => g.trim()).contains(_muscleGroup);
       return matchesQuery && matchesGroup;
     }).toList();
 
@@ -55,18 +50,12 @@ class _ExercisesViewState extends State<ExercisesView> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search exercises',
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: AppColors.textMuted,
-                    ),
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
                     suffixIcon: _query.isEmpty
                         ? null
                         : IconButton(
                             tooltip: 'Clear search',
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: AppColors.textMuted,
-                            ),
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
                             onPressed: () => setState(() {
                               _searchController.clear();
                               _query = '';
@@ -100,9 +89,7 @@ class _ExercisesViewState extends State<ExercisesView> {
                     selected: _muscleGroup == group,
                     showCheckmark: false,
                     labelStyle: TextStyle(
-                      color: _muscleGroup == group
-                          ? AppColors.onLime
-                          : AppColors.text,
+                      color: _muscleGroup == group ? AppColors.onLime : AppColors.text,
                       fontWeight: FontWeight.w700,
                     ),
                     onSelected: (_) => setState(() => _muscleGroup = group),
@@ -117,23 +104,16 @@ class _ExercisesViewState extends State<ExercisesView> {
               ? EmptyState(
                   icon: Icons.search_off_rounded,
                   title: 'No matches',
-                  message: _query.isEmpty
-                      ? 'Nothing in this group yet.'
-                      : 'Nothing matches "$_query".',
+                  message: _query.isEmpty ? 'Nothing in this group yet.' : 'Nothing matches "$_query".',
                   action: _query.isEmpty
                       ? null
-                      : PrimaryButton(
-                          text: 'Add "$_query"',
-                          onPressed: () =>
-                              _showAddExerciseSheet(context, _query),
-                        ),
+                      : PrimaryButton(text: 'Add "$_query"', onPressed: () => _showAddExerciseSheet(context, _query)),
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   itemCount: filtered.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) =>
-                      _ExerciseTile(exercise: filtered[index]),
+                  itemBuilder: (context, index) => _ExerciseTile(exercise: filtered[index]),
                 ),
         ),
       ],
@@ -159,11 +139,7 @@ class _ExerciseTile extends StatelessWidget {
               color: AppColors.lime.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.fitness_center_rounded,
-              color: AppColors.lime,
-              size: 20,
-            ),
+            child: const Icon(Icons.fitness_center_rounded, color: AppColors.lime, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -173,18 +149,11 @@ class _ExerciseTile extends StatelessWidget {
                 Text(exercise.name, style: AppText.strong),
                 const SizedBox(height: 2),
                 Text(exercise.muscleGroup, style: AppText.muted),
-                if (missingEquipment(
-                      exercise.equipment,
-                      context.watch<ProfileProvider>().availableEquipment,
-                    )
+                if (missingEquipment(exercise.equipment, context.watch<ProfileProvider>().availableEquipment)
                     case final missing when missing.isNotEmpty)
                   Text(
                     'Needs ${missing.map(Equipment.shortLabel).join(', ')}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.orange,
-                    ),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.orange),
                   ),
               ],
             ),
@@ -201,18 +170,16 @@ void _showAddExerciseSheet(BuildContext context, String initialName) {
   final muscleController = TextEditingController();
   final notesController = TextEditingController();
   final equipment = <String>{};
+  // Shown in the sheet (a snackbar would be hidden behind it).
+  String? error;
+  var saving = false;
 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
-      builder: (sheetContext, setSheetState) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          0,
-          20,
-          MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
-        ),
+      builder: (sheetContext, setSheetState) => SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(sheetContext).bottom + 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -228,10 +195,7 @@ void _showAddExerciseSheet(BuildContext context, String initialName) {
             TextField(
               controller: muscleController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Muscle group',
-                hintText: 'e.g. Chest, Back/Biceps',
-              ),
+              decoration: const InputDecoration(labelText: 'Muscle group', hintText: 'e.g. Chest, Back/Biceps'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -252,14 +216,10 @@ void _showAddExerciseSheet(BuildContext context, String initialName) {
                     selected: equipment.contains(code),
                     showCheckmark: false,
                     labelStyle: TextStyle(
-                      color: equipment.contains(code)
-                          ? AppColors.onLime
-                          : AppColors.text,
+                      color: equipment.contains(code) ? AppColors.onLime : AppColors.text,
                       fontWeight: FontWeight.w600,
                     ),
-                    onSelected: (on) => setSheetState(
-                      () => on ? equipment.add(code) : equipment.remove(code),
-                    ),
+                    onSelected: (on) => setSheetState(() => on ? equipment.add(code) : equipment.remove(code)),
                   ),
               ],
             ),
@@ -269,41 +229,44 @@ void _showAddExerciseSheet(BuildContext context, String initialName) {
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 20),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(error!, style: const TextStyle(color: AppColors.orange)),
+              ),
             PrimaryButton(
               text: 'Save exercise',
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final muscleGroup = muscleController.text.trim();
-                final messenger = ScaffoldMessenger.of(context);
-                if (name.isEmpty || muscleGroup.isEmpty) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Add a name and a muscle group.'),
-                    ),
-                  );
-                  return;
-                }
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final name = nameController.text.trim();
+                      final muscleGroup = muscleController.text.trim();
+                      final messenger = ScaffoldMessenger.of(context);
+                      if (name.isEmpty || muscleGroup.isEmpty) {
+                        setSheetState(() => error = 'Add a name and a muscle group.');
+                        return;
+                      }
+                      setSheetState(() => saving = true);
 
-                final navigator = Navigator.of(sheetContext);
-                final added = await context
-                    .read<ExerciseProvider>()
-                    .addExercise(
-                      name: name,
-                      muscleGroup: muscleGroup,
-                      notes: notesController.text.trim(),
-                      equipment: Equipment.all
-                          .where(equipment.contains)
-                          .toList(),
-                    );
-                if (!added) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('"$name" already exists.')),
-                  );
-                  return;
-                }
-                navigator.pop();
-                messenger.showSnackBar(SnackBar(content: Text('Added $name.')));
-              },
+                      final navigator = Navigator.of(sheetContext);
+                      final added = await context.read<ExerciseProvider>().addExercise(
+                        name: name,
+                        muscleGroup: muscleGroup,
+                        notes: notesController.text.trim(),
+                        equipment: Equipment.all.where(equipment.contains).toList(),
+                      );
+                      if (!added) {
+                        if (sheetContext.mounted) {
+                          setSheetState(() {
+                            saving = false;
+                            error = '"$name" already exists.';
+                          });
+                        }
+                        return;
+                      }
+                      navigator.pop();
+                      messenger.showSnackBar(SnackBar(content: Text('Added $name.')));
+                    },
             ),
           ],
         ),

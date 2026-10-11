@@ -8,6 +8,7 @@ import '../../data/sync_columns.dart';
 import '../../models/activity.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
+import '../../utils/format.dart';
 import '../health/health_provider.dart';
 import '../profile/profile_provider.dart';
 import 'activity_provider.dart';
@@ -41,7 +42,9 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
     _start = a?.startedAt ?? DateTime.now().subtract(const Duration(minutes: 30));
     _minutes = TextEditingController(text: a == null ? '30' : '${(a.durationSeconds / 60).round()}');
     _distance = TextEditingController(text: a?.distanceMeters == null ? '' : _trim(a!.distanceMeters! / 1000));
-    _kcal = TextEditingController(text: a == null ? '' : '${a.kcal.round()}');
+    // Left empty when editing, so changes get a fresh estimate; the saved
+    // number is kept if nothing that affects it changes.
+    _kcal = TextEditingController();
     _notes = TextEditingController(text: a?.notes ?? '');
   }
 
@@ -57,10 +60,22 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
   static String _trim(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
 
   ActivityType get _activity => activityType(_type);
-  Duration get _duration => Duration(minutes: int.tryParse(_minutes.text.trim()) ?? 0);
+  // Capped at a day, so a typo can't log a huge burn.
+  Duration get _duration => Duration(minutes: (int.tryParse(_minutes.text.trim()) ?? 0).clamp(0, 24 * 60));
   double? get _distanceKm {
-    final km = double.tryParse(_distance.text.trim().replaceAll(',', '.'));
-    return _activity.hasDistance && km != null && km > 0 ? km : null;
+    final km = parseDecimal(_distance.text);
+    return _activity.hasDistance && km != null && km > 0 && km <= 1000 ? km : null;
+  }
+
+  /// Editing, with nothing changed that the calories depend on.
+  bool get _unchanged {
+    final a = widget.existing;
+    if (a == null) return false;
+    final oldKm = a.distanceMeters == null ? null : a.distanceMeters! / 1000;
+    return a.type == _type &&
+        (a.durationSeconds / 60).round() == _duration.inMinutes &&
+        (oldKm == null) == (_distanceKm == null) &&
+        (oldKm == null || (oldKm - _distanceKm!).abs() < 0.005);
   }
 
   double _estimate(BodyMetrics body) => estimateKcal(
@@ -73,7 +88,10 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
     final date = await showDatePicker(
       context: context,
       initialDate: _start,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      // Older activities (e.g. synced from another phone) can still be edited.
+      firstDate: _start.isBefore(DateTime.now().subtract(const Duration(days: 365)))
+          ? _start
+          : DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now(),
     );
     if (date == null || !mounted) return;
@@ -92,7 +110,7 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
       startedAt: _start,
       durationSeconds: _duration.inSeconds,
       distanceMeters: _distanceKm == null ? null : _distanceKm! * 1000,
-      kcal: ownKcal != null && ownKcal >= 0 ? ownKcal : estimate,
+      kcal: ownKcal != null && ownKcal >= 0 ? ownKcal : (_unchanged ? widget.existing!.kcal : estimate),
       notes: _notes.text.trim(),
       source: widget.existing?.source ?? 'manual',
       externalId: widget.existing?.externalId,
@@ -228,9 +246,11 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
                   controller: _kcal,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Your own number (optional)',
-                    hintText: 'e.g. from your watch',
+                    hintText: widget.existing == null
+                        ? 'e.g. from your watch'
+                        : 'Saved: ${widget.existing!.kcal.round()} kcal',
                   ),
                 ),
               ],

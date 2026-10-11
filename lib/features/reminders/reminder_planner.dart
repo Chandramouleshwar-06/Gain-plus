@@ -153,7 +153,8 @@ List<PlannedReminder> planReminders(ReminderInput input) {
     for (var week = 0; week < 2; week++) {
       final weekStart = DateTime(monday.year, monday.month, monday.day + 7 * week);
       final weekEnd = DateTime(weekStart.year, weekStart.month, weekStart.day + 7);
-      final done = trainedDays.where((d) => !d.isBefore(weekStart) && d.isBefore(weekEnd)).length;
+      // Workouts, not training days, to match the weekly count shown in the app.
+      final done = input.workoutDates.where((d) => !d.isBefore(weekStart) && d.isBefore(weekEnd)).length;
       final remaining = input.weeklyTarget - done;
       if (remaining <= 0) continue;
       for (final (weekday, hour) in [(4, 18), (6, 10)]) {

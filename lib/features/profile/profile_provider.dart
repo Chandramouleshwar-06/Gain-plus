@@ -156,6 +156,9 @@ class ProfileProvider extends ChangeNotifier {
   /// 0..1 progress from the starting value towards the target. Works for
   /// goals that go down (losing weight) as well as up.
   static double goalProgress(Goal goal, double current) {
+    // A lift goal is done once you lift the target, even if it was set
+    // below your best at the time.
+    if (goal.type == Goal.typeLift && current >= goal.targetValue) return 1;
     final start = goal.startValue ?? (goal.type == Goal.typeLift ? 0 : current);
     final total = goal.targetValue - start;
     if (total == 0) return current == goal.targetValue ? 1 : 0;

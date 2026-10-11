@@ -66,7 +66,6 @@ void main() {
 
     test('imports skip own and seen records; use the record calories or estimate', () {
       final start = DateTime(2026, 10, 1, 7);
-      var n = 0;
       final activities = activitiesFromHealth(
         [
           HealthWorkoutRecord(id: 'r1', type: 'RUNNING', start: start, end: start.add(const Duration(minutes: 30)),
@@ -79,7 +78,7 @@ void main() {
         ],
         alreadyImported: {'r4'},
         body: const BodyMetrics(weightKg: 60),
-        newId: () => 'id${n++}',
+        idFor: (r) => 'id-${r.id}',
       );
       expect(activities.map((a) => a.externalId), ['r1', 'r2']);
       expect(activities[0].kcal, 312);

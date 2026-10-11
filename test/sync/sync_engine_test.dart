@@ -194,4 +194,32 @@ void main() {
     final live = await db.query('exercises', where: "name = 'Cable Fly' AND deletedAt IS NULL");
     expect(live.map((r) => r['id']), ['b'], reason: 'newer one kept');
   });
+
+  test('plans that used a retired duplicate exercise move to the one kept', () async {
+    await devices.use('phone');
+    final db1 = await DatabaseService.instance.database;
+    await db1.insert('exercises', touched({'id': 'a', 'name': 'Cable Fly', 'muscleGroup': 'Chest', 'notes': '', 'isCustom': 1}));
+    await db1.insert('plans', touched({'id': 'p', 'name': 'Chest day'}));
+    await db1.insert('plan_exercises',
+        touched({'id': 'pe', 'planId': 'p', 'exerciseId': 'a', 'position': 0, 'targetSets': 3, 'targetReps': 10}));
+    await engine.sync(uid);
+
+    await devices.use('tablet');
+    await tick();
+    final db2 = await DatabaseService.instance.database;
+    await db2.insert('exercises', touched({'id': 'b', 'name': 'Cable Fly', 'muscleGroup': 'Chest', 'notes': '', 'isCustom': 1}));
+    await engine.sync(uid);
+    await tick();
+    await engine.sync(uid); // uploads the repointed plan row
+    await devices.use('phone');
+    await engine.sync(uid);
+
+    for (final device in ['phone', 'tablet']) {
+      await devices.use(device);
+      await engine.sync(uid);
+      final db = await DatabaseService.instance.database;
+      final row = (await db.query('plan_exercises', where: "id = 'pe'")).single;
+      expect(row['exerciseId'], 'b', reason: '$device: plan keeps its exercise');
+    }
+  });
 }

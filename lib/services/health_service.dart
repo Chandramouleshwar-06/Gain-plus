@@ -58,6 +58,7 @@ class HealthDaySummary {
 abstract class HealthService {
   Future<HealthStatus> status();
   Future<void> install();
+  /// Whether the core data (steps and workouts) can be read.
   Future<bool> hasPermissions();
   Future<bool> requestPermissions();
   Future<void> revokePermissions();
@@ -132,8 +133,12 @@ class PluginHealthService implements HealthService {
   @override
   Future<bool> hasPermissions() async {
     await _configure();
-    return await _health.hasPermissions(_types, permissions: _access) ?? false;
+    // Only the core reads are required; the rest (sleep, heart rate,
+    // writing) is optional and simply missing if not allowed.
+    return await _health.hasPermissions(_core) ?? false;
   }
+
+  static const _core = [HealthDataType.STEPS, HealthDataType.WORKOUT];
 
   @override
   Future<bool> requestPermissions() async {
@@ -176,7 +181,7 @@ class PluginHealthService implements HealthService {
   Future<HealthDaySummary> day(DateTime day) async {
     await _configure();
     final start = DateTime(day.year, day.month, day.day);
-    final end = start.add(const Duration(days: 1));
+    final end = DateTime(start.year, start.month, start.day + 1);
     final now = DateTime.now();
     final until = end.isAfter(now) ? now : end;
 

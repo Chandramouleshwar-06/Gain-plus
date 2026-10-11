@@ -58,7 +58,11 @@ class _ReminderSyncState extends State<ReminderSync> with WidgetsBindingObserver
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _lastSignature = null; // the date may have changed
-      _schedule();
+      // Streak, this week and the recap depend on today's date, so reload
+      // them before re-planning (signed-out users have no sync to do it).
+      context.read<ProgressProvider>().loadData().whenComplete(() {
+        if (mounted) _schedule();
+      });
     }
   }
 

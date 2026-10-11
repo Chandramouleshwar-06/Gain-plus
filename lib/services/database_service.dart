@@ -427,7 +427,9 @@ class DatabaseService {
         final String planId;
         if (builtinId != null && claimed.add(builtinId)) {
           planId = builtinId;
-          await db.delete('plan_exercises', where: 'planId = ?', whereArgs: [planId]);
+          // Soft-delete the seeded exercises so other devices drop them too.
+          await db.update('plan_exercises', {'deletedAt': now, 'updatedAt': now, 'dirty': 1},
+              where: 'planId = ? AND deletedAt IS NULL', whereArgs: [planId]);
           await db.update('plans', {'updatedAt': now, 'dirty': 1},
               where: 'id = ?', whereArgs: [planId]);
         } else {

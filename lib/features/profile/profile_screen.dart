@@ -231,7 +231,7 @@ class ProfileScreen extends StatelessWidget {
                   if (name.text.trim().isEmpty) return;
                   context.read<ProfileProvider>().saveProfile(p.copyWith(
                         name: name.text.trim(),
-                        heightCm: double.tryParse(height.text.trim().replaceAll(',', '.')),
+                        heightCm: parseDecimal(height.text),
                         primaryGoal: goal,
                         experience: experience,
                       ));
@@ -384,7 +384,7 @@ Future<void> showLogWeightDialog(BuildContext context) async {
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
     ),
   );
-  final value = text == null ? null : double.tryParse(text.replaceAll(',', '.'));
+  final value = text == null ? null : parseDecimal(text);
   if (value == null || value <= 0) return;
   await provider.logBodyWeight(provider.units.toKg(value));
   if (!context.mounted) return;
@@ -430,7 +430,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     final latestWeight = context.watch<ProfileProvider>().latestBodyWeight;
     final units = context.watch<ProfileProvider>().units;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -535,7 +535,12 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          PrimaryButton(text: 'Save goal', onPressed: _save),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(_error!, style: const TextStyle(color: AppColors.orange)),
+            ),
+          PrimaryButton(text: 'Save goal', onPressed: _saving ? null : _save),
         ],
       ),
     );
@@ -571,22 +576,42 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     if (picked != null) setState(() => _deadline = picked);
   }
 
+  bool _saving = false;
+
+  /// Shown in the sheet (a snackbar would be hidden behind it).
+  String? _error;
+
+  void _fail(String message) => setState(() => _error = message);
+
+  /// One save at a time, so a double tap can't add the goal twice.
   Future<void> _save() async {
-    final messenger = ScaffoldMessenger.of(context);
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await _saveGoal();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _saveGoal() async {
     final navigator = Navigator.of(context);
     final profile = context.read<ProfileProvider>();
     final prs = context.read<ProgressProvider>().prKgByExerciseId;
 
-    final typed = double.tryParse(_target.text.trim().replaceAll(',', '.'));
+    final typed = parseDecimal(_target.text);
     if (_type == Goal.typeMeasurement) {
       if (typed == null || typed <= 0) {
-        messenger.showSnackBar(const SnackBar(content: Text('Enter a target.')));
+        _fail('Enter a target.');
         return;
       }
       final current = profile.latestMeasurement(_site.code);
       if (current == null) {
         // Progress is measured from where you start, so that's needed first.
-        messenger.showSnackBar(SnackBar(content: Text('Log your ${_site.label.toLowerCase()} first.')));
+        _fail('Log your ${_site.label.toLowerCase()} first.');
         return;
       }
       await profile.addGoal(
@@ -596,19 +621,19 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
         startValue: current,
         deadline: _deadline,
       );
-      navigator.pop();
+      if (mounted) navigator.pop();
       return;
     }
 
     final target = typed == null ? null : profile.units.toKg(typed);
     if (target == null || target <= 0) {
-      messenger.showSnackBar(const SnackBar(content: Text('Enter a target weight.')));
+      _fail('Enter a target weight.');
       return;
     }
 
     if (_type == Goal.typeLift) {
       if (_exercise == null) {
-        messenger.showSnackBar(const SnackBar(content: Text('Choose an exercise.')));
+        _fail('Choose an exercise.');
         return;
       }
       await profile.addGoal(
@@ -621,10 +646,10 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
     } else {
       var current = profile.latestBodyWeight;
       if (current == null) {
-        final typedCurrent = double.tryParse(_currentWeight.text.trim().replaceAll(',', '.'));
+        final typedCurrent = parseDecimal(_currentWeight.text);
         current = typedCurrent == null ? null : profile.units.toKg(typedCurrent);
         if (current == null) {
-          messenger.showSnackBar(const SnackBar(content: Text('Enter your current weight.')));
+          _fail('Enter your current weight.');
           return;
         }
         await profile.logBodyWeight(current);
@@ -636,7 +661,7 @@ class _AddGoalSheetState extends State<_AddGoalSheet> {
         deadline: _deadline,
       );
     }
-    navigator.pop();
+    if (mounted) navigator.pop();
   }
 }
 

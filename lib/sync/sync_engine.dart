@@ -111,7 +111,12 @@ class SyncEngine {
   }
 
   /// Applies one remote row if it's newer than the local copy.
-  Future<bool> _apply(Database db, String table, Map<String, Object?> row) async {
+  /// Read, compare and write in one transaction, so an edit made at the same
+  /// moment can't be overwritten by an older remote copy.
+  Future<bool> _apply(Database db, String table, Map<String, Object?> row) =>
+      db.transaction((txn) => _applyIn(txn, table, row));
+
+  Future<bool> _applyIn(DatabaseExecutor db, String table, Map<String, Object?> row) async {
     final id = row['id'];
     final local = (await db.query(table, where: 'id = ?', whereArgs: [id])).firstOrNull;
     if (local != null && (local['updatedAt'] as int) >= (row['updatedAt'] as int)) {
@@ -130,7 +135,7 @@ class SyncEngine {
 
   /// Update or insert. Deliberately not ConflictAlgorithm.replace: on a
   /// unique clash that silently hard-deletes the other row.
-  Future<void> _write(Database db, String table, Map<String, Object?> row, {required bool exists}) async {
+  Future<void> _write(DatabaseExecutor db, String table, Map<String, Object?> row, {required bool exists}) async {
     if (exists) {
       await db.update(table, row, where: 'id = ?', whereArgs: [row['id']]);
     } else {
@@ -141,7 +146,7 @@ class SyncEngine {
   /// Another live row shares the unique value: the newer one stays, the
   /// older one is soft-deleted (and the deletion synced).
   Future<bool> _resolveUnique(
-    Database db,
+    DatabaseExecutor db,
     String table,
     String column,
     Map<String, Object?> row, {
@@ -152,15 +157,28 @@ class SyncEngine {
         .firstOrNull;
     if (other == null) return false;
 
+    final String winner, loser;
     if ((other['updatedAt'] as int) < (row['updatedAt'] as int)) {
       await db.update(table, softDeleted(), where: 'id = ?', whereArgs: [other['id']]);
       await _write(db, table, row, exists: exists);
+      (winner, loser) = (row['id'] as String, other['id'] as String);
     } else {
       // Keep ours; store theirs as deleted so the deletion is pushed.
       await _write(db, table, {...row, ...softDeleted()}, exists: exists);
+      (winner, loser) = (other['id'] as String, row['id'] as String);
     }
+    if (table == 'exercises') await _repointExercise(db, from: loser, to: winner);
     debugPrint('Sync: resolved duplicate $column in $table');
     return true;
+  }
+
+  /// Plans, workout history and goals that used a retired duplicate
+  /// exercise now use the one that stayed (and the change syncs).
+  Future<void> _repointExercise(DatabaseExecutor db, {required String from, required String to}) async {
+    for (final table in const ['plan_exercises', 'workout_exercises', 'goals']) {
+      await db.update(table, touched({'exerciseId': to}),
+          where: 'exerciseId = ? AND $notDeleted', whereArgs: [from]);
+    }
   }
 
   /// Rows waiting to be uploaded.

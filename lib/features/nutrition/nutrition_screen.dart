@@ -59,13 +59,13 @@ class _NutritionScreenState extends State<NutritionScreen> {
               IconButton(
                 tooltip: 'Previous day',
                 icon: const Icon(Icons.chevron_left_rounded),
-                onPressed: () => nutrition.setDay(day.subtract(const Duration(days: 1))),
+                onPressed: () => nutrition.setDay(DateTime(day.year, day.month, day.day - 1)),
               ),
               Text(nutrition.isToday ? 'Today' : DateFormat('EEE d MMM').format(day), style: AppText.strong),
               IconButton(
                 tooltip: 'Next day',
                 icon: const Icon(Icons.chevron_right_rounded),
-                onPressed: nutrition.isToday ? null : () => nutrition.setDay(day.add(const Duration(days: 1))),
+                onPressed: nutrition.isToday ? null : () => nutrition.setDay(DateTime(day.year, day.month, day.day + 1)),
               ),
             ],
           ),
@@ -291,9 +291,9 @@ class _TargetsSetupSheetState extends State<_TargetsSetupSheet> {
     final profileProvider = context.read<ProfileProvider>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final height = double.tryParse(_height.text.replaceAll(',', '.'));
+    final height = parseDecimal(_height.text);
     final year = int.tryParse(_birthYear.text);
-    final typedWeight = double.tryParse(_weight.text.replaceAll(',', '.'));
+    final typedWeight = parseDecimal(_weight.text);
     if (_sex == null || _activity == null || height == null || year == null ||
         (profileProvider.latestBodyWeight == null && typedWeight == null)) {
       messenger.showSnackBar(const SnackBar(content: Text('Fill in every field.')));

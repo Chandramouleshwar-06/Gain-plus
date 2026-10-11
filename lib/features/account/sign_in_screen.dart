@@ -38,13 +38,13 @@ class _SignInScreenState extends State<SignInScreen> {
       await action();
       if (mounted) Navigator.of(context).pop(true);
     } on AccountError catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } on GoogleSignInException catch (e) {
-      if (e.code != GoogleSignInExceptionCode.canceled) {
+      if (mounted && e.code != GoogleSignInExceptionCode.canceled) {
         setState(() => _error = "Google sign-in didn't work (${e.code.name}). Try again or use email.");
       }
     } catch (e) {
-      setState(() => _error = 'Something went wrong: $e');
+      if (mounted) setState(() => _error = 'Something went wrong: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

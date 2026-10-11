@@ -14,6 +14,11 @@ const _uuid = Uuid();
 
 String newId() => _uuid.v4();
 
+/// The same id for the same [name] on every device, for rows made from
+/// outside records (e.g. Health Connect), so importing one twice on two
+/// devices merges on sync instead of duplicating.
+String stableId(String name) => _uuid.v5(Namespace.url.value, 'gainplus:$name');
+
 int nowMs() => DateTime.now().millisecondsSinceEpoch;
 
 /// [values] marked as a local change that needs uploading.

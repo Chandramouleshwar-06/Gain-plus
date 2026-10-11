@@ -25,10 +25,12 @@ List<(DateTime, String)> programSessions({
 /// After a missed session, keeps the workouts in order: the missed workout
 /// moves to [today] and every later one moves to the following training
 /// days. [planSequence] is the missed plan followed by the rest, in order.
+/// Later sessions skip [blocked] days (date keys booked with other workouts).
 List<(DateTime, String)> shiftAfterMiss({
   required List<String> planSequence,
   required List<int> weekdays,
   required DateTime today,
+  Set<String> blocked = const {},
 }) {
   if (planSequence.isEmpty) return [];
   final start = _day(today);
@@ -36,7 +38,9 @@ List<(DateTime, String)> shiftAfterMiss({
   var offset = 1;
   while (result.length < planSequence.length && weekdays.isNotEmpty) {
     final date = DateTime(start.year, start.month, start.day + offset++);
-    if (weekdays.contains(date.weekday)) result.add((date, planSequence[result.length]));
+    if (weekdays.contains(date.weekday) && !blocked.contains(dateKey(date))) {
+      result.add((date, planSequence[result.length]));
+    }
   }
   return result;
 }

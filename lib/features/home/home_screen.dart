@@ -577,7 +577,8 @@ class _MissedCard extends StatelessWidget {
                   child: PrimaryButton(
                     text: 'Do it today',
                     onPressed: () async {
-                      await programs.doMissedToday(missed, plans.schedules);
+                      await programs.doMissedToday(missed, plans.schedules,
+                          trainedDays: context.read<ProgressProvider>().workoutDays);
                       await plans.loadPlans();
                     },
                   ),

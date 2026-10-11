@@ -285,6 +285,16 @@ class _ExerciseCard extends StatelessWidget {
         _ => '$working',
       });
     }
+    // Last time's sets line up by kind: warm-ups with warm-ups, working
+    // sets with working sets, so a warm-up never fills a working set.
+    final previousWarmups = previous.where((s) => s.isWarmup).toList();
+    final previousWorking = previous.where((s) => !s.isWarmup).toList();
+    final previousFor = <SetEntry?>[];
+    var warmupIndex = 0, workingIndex = 0;
+    for (final s in exercise.sets) {
+      final (list, index) = s.isWarmup ? (previousWarmups, warmupIndex++) : (previousWorking, workingIndex++);
+      previousFor.add(index < list.length ? list[index] : null);
+    }
     final units = context.watch<ProfileProvider>().units;
     final details = context.watch<ExerciseProvider>().byId(exercise.exerciseId);
     final missing = details == null
@@ -403,8 +413,9 @@ class _ExerciseCard extends StatelessWidget {
                 setNumber: i + 1,
                 label: labels[i],
                 onEditType: () => _editSet(context, provider, exercise, i),
-                previous: i < previous.length ? previous[i] : null,
-                suggestedWeight: suggestion?.weight,
+                previous: previousFor[i],
+                // The suggestion is for working sets only.
+                suggestedWeight: exercise.sets[i].isWarmup ? null : suggestion?.weight,
                 onChanged: (weight, reps) => provider.updateSet(exercise, i, weight, reps),
                 onToggle: () => provider.toggleSetComplete(exercise, i,
                     restSeconds: context.read<SettingsProvider>().restAfterSet),
@@ -547,7 +558,7 @@ class _SetRowState extends State<_SetRow> {
 
   // Accept "2,5" as well as "2.5" for locales with a decimal comma.
   double get _typedWeight =>
-      widget.units.toKg(double.tryParse(_weightController.text.replaceAll(',', '.')) ?? 0);
+      widget.units.toKg(parseDecimal(_weightController.text) ?? 0);
   int get _typedReps => int.tryParse(_repsController.text) ?? 0;
 
   void _notifyChanged() => widget.onChanged(_typedWeight, _typedReps);
@@ -739,10 +750,15 @@ class _RestTimerCardState extends State<_RestTimerCard> {
     if (!mounted) return;
     final provider = context.read<WorkoutProvider>();
     final endsAt = provider.restEndsAt;
-    if (endsAt != null && !endsAt.isAfter(DateTime.now())) {
-      _goUntil = DateTime.now().add(const Duration(seconds: 3));
-      HapticFeedback.heavyImpact();
-      Future.delayed(const Duration(milliseconds: 300), HapticFeedback.heavyImpact);
+    final now = DateTime.now();
+    if (endsAt != null && !endsAt.isAfter(now)) {
+      // Only celebrate a rest that just ended; one that ran out while you
+      // were on another screen is cleared quietly.
+      if (now.difference(endsAt) < const Duration(seconds: 3)) {
+        _goUntil = now.add(const Duration(seconds: 3));
+        HapticFeedback.heavyImpact();
+        Future.delayed(const Duration(milliseconds: 300), HapticFeedback.heavyImpact);
+      }
       provider.endRest();
     }
     if (provider.restEndsAt != null || _goUntil != null) setState(() {});

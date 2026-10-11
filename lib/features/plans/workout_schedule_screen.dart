@@ -230,7 +230,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     if (time == null) return;
 
     await provider.scheduleWorkout(date, planId, time, repeatWeeks: weeks);
-    navigator.pop();
+    if (sheetContext.mounted) navigator.pop();
     messenger.showSnackBar(SnackBar(
       content: Text(weeks == 1 ? 'Scheduled $planName.' : 'Scheduled $planName for $weeks weeks.'),
     ));

@@ -79,7 +79,7 @@ class ActivitiesScreen extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     if (day == today) return 'Today';
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    if (day == DateTime(today.year, today.month, today.day - 1)) return 'Yesterday';
     return DateFormat('EEE d MMM').format(day);
   }
 }

@@ -50,11 +50,14 @@ class ProfileRepository {
     return rows.map(BodyWeightEntry.fromMap).toList();
   }
 
-  Future<void> addBodyWeight(DateTime date, double weightKg, {String source = 'manual'}) async {
+  /// [id] defaults to a new random one.
+  Future<void> addBodyWeight(DateTime date, double weightKg, {String source = 'manual', String? id}) async {
     final db = await _db;
     await db.insert(
       'body_weights',
-      touched({'id': newId(), 'date': dateKey(date), 'weightKg': weightKg, 'source': source}),
+      touched({'id': id ?? newId(), 'date': dateKey(date), 'weightKg': weightKg, 'source': source}),
+      // A given id may already exist (e.g. a deleted import): leave it be.
+      conflictAlgorithm: id == null ? null : ConflictAlgorithm.ignore,
     );
   }
 

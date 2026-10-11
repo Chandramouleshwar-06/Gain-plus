@@ -9,6 +9,7 @@ import '../settings/equipment_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
+import '../../utils/format.dart';
 import 'profile_provider.dart';
 
 /// Option shown as a selectable card: value, label, description, icon.
@@ -62,10 +63,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   bool get _canContinue => switch (_page) {
-        0 => _name.text.trim().isNotEmpty,
-        1 => _goal != null,
-        _ => true,
-      };
+    0 => _name.text.trim().isNotEmpty,
+    1 => _goal != null,
+    _ => true,
+  };
 
   void _next() {
     FocusScope.of(context).unfocus();
@@ -78,21 +79,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finish() async {
     setState(() => _saving = true);
-    double? parse(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
-    await context.read<ProfileProvider>().completeOnboarding(
-          Profile(
-            name: _name.text.trim(),
-            primaryGoal: _goal,
-            experience: _experience,
-            workoutsPerWeek: _perWeek,
-            heightCm: parse(_height),
-            birthYear: int.tryParse(_birthYear.text.trim()),
-            onboardedAt: DateTime.now(),
-            units: _units.code,
-            equipment: _equipment,
-          ),
-          bodyWeightKg: parse(_weight) == null ? null : _units.toKg(parse(_weight)!),
-        );
+    double? parse(TextEditingController c) => parseDecimal(c.text);
+    try {
+      await context.read<ProfileProvider>().completeOnboarding(
+        Profile(
+          name: _name.text.trim(),
+          primaryGoal: _goal,
+          experience: _experience,
+          workoutsPerWeek: _perWeek,
+          heightCm: parse(_height),
+          birthYear: int.tryParse(_birthYear.text.trim()),
+          onboardedAt: DateTime.now(),
+          units: _units.code,
+          equipment: _equipment,
+        ),
+        bodyWeightKg: parse(_weight) == null ? null : _units.toKg(parse(_weight)!),
+      );
+    } catch (e) {
+      debugPrint('Could not save onboarding: $e');
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Couldn't save. Please try again.")));
+    }
   }
 
   @override
@@ -110,7 +118,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onPressed: _page == 0
                         ? null
                         : () => _pages.previousPage(
-                            duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic),
+                            duration: const Duration(milliseconds: 280),
+                            curve: Curves.easeOutCubic,
+                          ),
                     icon: Icon(Icons.arrow_back_rounded, color: _page == 0 ? Colors.transparent : AppColors.text),
                   ),
                   const SizedBox(width: 8),
@@ -156,8 +166,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       if (context.read<AccountProvider>().available) ...[
                         const SizedBox(height: 24),
                         TextButton.icon(
-                          onPressed: () => Navigator.of(context)
-                              .push(MaterialPageRoute(builder: (_) => const SignInScreen())),
+                          onPressed: () =>
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignInScreen())),
                           icon: const Icon(Icons.cloud_download_rounded),
                           label: const Text('Already have an account? Sign in'),
                         ),
@@ -269,10 +279,7 @@ class _Step extends StatelessWidget {
         Text(eyebrow, style: AppText.eyebrow.copyWith(color: AppColors.lime)),
         const SizedBox(height: 8),
         Text(title, style: AppText.display(40)),
-        if (subtitle != null) ...[
-          const SizedBox(height: 8),
-          Text(subtitle!, style: AppText.muted),
-        ],
+        if (subtitle != null) ...[const SizedBox(height: 8), Text(subtitle!, style: AppText.muted)],
         const SizedBox(height: 24),
         ...children,
       ],
@@ -312,13 +319,19 @@ class ChoiceCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label.toUpperCase(),
-                            style: AppText.display(20,
-                                weight: FontWeight.w700, color: selected ? AppColors.onLime : AppColors.text)),
+                        Text(
+                          label.toUpperCase(),
+                          style: AppText.display(
+                            20,
+                            weight: FontWeight.w700,
+                            color: selected ? AppColors.onLime : AppColors.text,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(description,
-                            style: TextStyle(
-                                fontSize: 14, color: selected ? AppColors.onLime : AppColors.textMuted)),
+                        Text(
+                          description,
+                          style: TextStyle(fontSize: 14, color: selected ? AppColors.onLime : AppColors.textMuted),
+                        ),
                       ],
                     ),
                   ),

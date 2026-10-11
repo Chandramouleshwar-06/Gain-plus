@@ -15,7 +15,8 @@ Map<String, Object> buildHomeWidgetData({
   final today = DateTime(now.year, now.month, now.day);
   final recent = workoutDates
       .map((d) => DateTime(d.year, d.month, d.day))
-      .where((d) => !d.isBefore(today.subtract(const Duration(days: 120))))
+      // Enough history for the widget to count long streaks.
+      .where((d) => !d.isBefore(DateTime(today.year - 1, today.month, today.day)))
       .toSet()
       .toList()
     ..sort();

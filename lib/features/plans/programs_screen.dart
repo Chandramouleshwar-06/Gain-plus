@@ -295,8 +295,11 @@ class _ProgramSheetState extends State<_ProgramSheet> {
     );
     final scheduled = _schedule ? await programs.start(programs.byId(id)!) : 0;
     await plans.loadPlans();
-    navigator.pop(); // sheet
-    navigator.pop(); // programs screen
+    // If the sheet was swiped away while saving, don't pop other screens.
+    if (mounted) {
+      navigator.pop(); // sheet
+      navigator.pop(); // programs screen
+    }
     messenger.showSnackBar(SnackBar(
       content: Text(scheduled == 0
           ? 'Added ${widget.program.name} to your programs.'

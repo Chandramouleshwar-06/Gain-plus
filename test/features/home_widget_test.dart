@@ -10,7 +10,7 @@ void main() {
         DateTime(2026, 10, 10, 7),
         DateTime(2026, 10, 10, 18), // twice in a day counts once
         DateTime(2026, 10, 9, 7),
-        DateTime(2026, 1, 1), // too old to matter
+        DateTime(2025, 1, 1), // too old to matter
       ],
       planFor: (day) => day.day == 12 ? ('Push Day', 6) : null,
       weeklyTarget: 4,

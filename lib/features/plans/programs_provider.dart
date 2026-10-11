@@ -96,38 +96,61 @@ class ProgramsProvider extends ChangeNotifier {
   /// Does a missed session today. In a program, every later session shifts
   /// to the following training days so the order is kept; otherwise just
   /// that day moves to today.
-  Future<void> doMissedToday(MissedSession missed, Map<String, ScheduleEntry> schedules) async {
+  ///
+  /// Program sessions already trained (between the missed day and today)
+  /// aren't repeated, and other workouts booked on later days are kept.
+  Future<void> doMissedToday(
+    MissedSession missed,
+    Map<String, ScheduleEntry> schedules, {
+    Set<DateTime> trainedDays = const {},
+  }) async {
     final today = DateTime.now();
     final todayDay = DateTime(today.year, today.month, today.day);
     final program = byId(missed.programId);
 
+    // Whatever else was planned for today moves to the next free day.
+    Future<void> moveTodayAside() async {
+      final existing = schedules[dateKey(todayDay)];
+      if (existing == null || (program != null && existing.programId == program.id)) return;
+      for (var i = 1; i <= 7; i++) {
+        final day = DateTime(todayDay.year, todayDay.month, todayDay.day + i);
+        if (!schedules.containsKey(dateKey(day))) {
+          await ScheduleRepository.instance.set(day, existing.planId,
+              reminderMinutes: existing.reminderMinutes, programId: existing.programId);
+          return;
+        }
+      }
+    }
+
     if (program == null) {
       final reminder = schedules[dateKey(missed.date)]?.reminderMinutes;
       await ScheduleRepository.instance.clear(missed.date);
-      // Whatever was planned for today moves to the next free day.
-      final existing = schedules[dateKey(todayDay)];
-      if (existing != null) {
-        for (var i = 1; i <= 7; i++) {
-          final day = DateTime(todayDay.year, todayDay.month, todayDay.day + i);
-          if (!schedules.containsKey(dateKey(day))) {
-            await ScheduleRepository.instance.set(day, existing.planId,
-                reminderMinutes: existing.reminderMinutes, programId: existing.programId);
-            break;
-          }
-        }
-      }
+      await moveTodayAside();
       await ScheduleRepository.instance.set(todayDay, missed.planId, reminderMinutes: reminder);
       return;
     }
 
-    final later = schedules.values
-        .where((s) => s.programId == program.id && !parseDateKey(s.date).isBefore(missed.date))
-        .toList()
+    bool trained(DateTime date) => trainedDays.contains(date);
+    final later = schedules.values.where((s) {
+      final date = parseDateKey(s.date);
+      if (s.programId != program.id || date.isBefore(missed.date)) return false;
+      // Sessions done since the miss stay where they were.
+      return !(date.isBefore(todayDay) && date != missed.date && trained(date));
+    }).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
     final sequence = later.map((s) => s.planId).toList();
+    final blocked = {
+      for (final s in schedules.values)
+        if (s.programId != program.id && !parseDateKey(s.date).isBefore(todayDay)) s.date,
+    };
 
-    await ScheduleRepository.instance.clearProgram(program.id, from: missed.date);
-    for (final (date, planId) in shiftAfterMiss(planSequence: sequence, weekdays: program.weekdays, today: todayDay)) {
+    await moveTodayAside();
+    // Clear only the sessions that are moving.
+    for (final s in later) {
+      await ScheduleRepository.instance.clear(parseDateKey(s.date));
+    }
+    for (final (date, planId)
+        in shiftAfterMiss(planSequence: sequence, weekdays: program.weekdays, today: todayDay, blocked: blocked)) {
       await ScheduleRepository.instance.set(date, planId,
           reminderMinutes: program.reminderMinutes, programId: program.id);
     }

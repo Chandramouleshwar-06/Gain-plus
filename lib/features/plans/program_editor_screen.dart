@@ -73,8 +73,15 @@ class _ProgramEditorScreenState extends State<ProgramEditorScreen> {
   }
 
   Future<void> _saveAndClose() async {
+    if (_busy) return; // a double tap would save a new program twice
+    setState(() => _busy = true);
     final id = await _save();
-    if (id != null && mounted) Navigator.pop(context);
+    if (!mounted) return;
+    if (id != null) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _busy = false);
+    }
   }
 
   Future<void> _start() async {

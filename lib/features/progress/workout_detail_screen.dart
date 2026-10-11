@@ -11,9 +11,17 @@ import '../profile/profile_provider.dart';
 import 'progress_provider.dart';
 
 /// One past workout with every exercise and set.
-class WorkoutDetailScreen extends StatelessWidget {
+class WorkoutDetailScreen extends StatefulWidget {
   final String workoutId;
   const WorkoutDetailScreen({super.key, required this.workoutId});
+
+  @override
+  State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
+}
+
+class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
+  // Loaded once, not on every rebuild (e.g. when the profile reloads).
+  late final Future<Workout?> _workout = WorkoutRepository.instance.getWithDetails(widget.workoutId);
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +36,7 @@ class WorkoutDetailScreen extends StatelessWidget {
         ],
       ),
       body: FutureBuilder<Workout?>(
-        future: WorkoutRepository.instance.getWithDetails(workoutId),
+        future: _workout,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator(color: AppColors.lime));
@@ -121,7 +129,7 @@ class WorkoutDetailScreen extends StatelessWidget {
     if (!ok || !context.mounted) return;
     final navigator = Navigator.of(context);
     final progress = context.read<ProgressProvider>();
-    await WorkoutRepository.instance.delete(workoutId);
+    await WorkoutRepository.instance.delete(widget.workoutId);
     await progress.loadData();
     navigator.pop();
   }

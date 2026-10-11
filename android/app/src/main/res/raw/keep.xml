@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resource shrinking can't see resources referenced by name at runtime
+     (the notification icon); keep them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@mipmap/ic_launcher,@drawable/*,@layout/gainplus_widget,@xml/gainplus_widget_info" />

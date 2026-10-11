@@ -35,6 +35,13 @@ class AccountProvider extends ChangeNotifier {
   StreamSubscription<User?>? _authSub;
   bool _googleReady = false;
 
+  /// The sync in progress, so overlapping requests share it.
+  Future<bool>? _inFlight;
+
+  /// Set while signing out: no sync may start, or it could pull the
+  /// account back into the freshly wiped database.
+  bool _signingOut = false;
+
   User? user;
   bool syncing = false;
   DateTime? lastSyncedAt;
@@ -46,7 +53,12 @@ class AccountProvider extends ChangeNotifier {
   bool get signedIn => user != null;
 
   /// Syncs now if signed in. Returns false if it failed (offline etc.).
-  Future<bool> syncNow() async {
+  Future<bool> syncNow() {
+    if (_signingOut) return Future.value(false);
+    return _inFlight ??= _sync().whenComplete(() => _inFlight = null);
+  }
+
+  Future<bool> _sync() async {
     final uid = user?.uid;
     final engine = _engine;
     if (uid == null || engine == null) return false;
@@ -112,15 +124,26 @@ class AccountProvider extends ChangeNotifier {
       final pending = await SyncEngine.pendingChanges();
       if (pending > 0) throw UnsyncedChangesError(pending);
     }
-    await DatabaseService.instance.wipe();
-    await PhotoStore.instance.deleteAll();
-    await SyncEngine.resetCursors(uid);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_lastSyncKey);
-    lastSyncedAt = null;
-    await FirebaseAuth.instance.signOut();
-    if (_googleReady) await GoogleSignIn.instance.signOut();
-    user = null;
+    _signingOut = true;
+    try {
+      // Cursors first: if anything below fails, the next sync downloads
+      // everything again instead of leaving this phone empty.
+      await SyncEngine.resetCursors(uid);
+      await DatabaseService.instance.wipe();
+      try {
+        await PhotoStore.instance.deleteAll();
+      } catch (e) {
+        debugPrint('Could not delete progress photos: $e');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastSyncKey);
+      lastSyncedAt = null;
+      await FirebaseAuth.instance.signOut();
+      if (_googleReady) await GoogleSignIn.instance.signOut();
+      user = null;
+    } finally {
+      _signingOut = false;
+    }
     notifyListeners();
     onDataPulled?.call(); // reload everything from the now-empty database
   }

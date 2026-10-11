@@ -313,8 +313,15 @@ class _PortionSheetState extends State<_PortionSheet> {
                   : () async {
                       setState(() => _saving = true);
                       final navigator = Navigator.of(context);
-                      await context.read<NutritionProvider>().log(f, meal: widget.meal, servings: _servings);
-                      navigator.pop(true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await context.read<NutritionProvider>().log(f, meal: widget.meal, servings: _servings);
+                        navigator.pop(true);
+                      } catch (e) {
+                        debugPrint('Could not log food: $e');
+                        if (mounted) setState(() => _saving = false);
+                        messenger.showSnackBar(const SnackBar(content: Text("Couldn't add it. Please try again.")));
+                      }
                     },
             ),
           ],
@@ -349,7 +356,7 @@ class _FoodFormState extends State<_FoodForm> {
     super.dispose();
   }
 
-  double _n(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0;
+  double _n(TextEditingController c) => parseDecimal(c.text) ?? 0;
 
   void _submit() {
     final kcal = _n(_kcal);

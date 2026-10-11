@@ -80,9 +80,21 @@ class WorkoutDetailScreen extends StatelessWidget {
                             children: [
                               SizedBox(
                                 width: 28,
-                                child: Text('${set.position + 1}', style: AppText.muted),
+                                child: Text(
+                                  switch (set.setType) {
+                                    SetType.warmup => 'W',
+                                    SetType.drop => 'D',
+                                    SetType.failure => 'F',
+                                    _ => '${set.position + 1}',
+                                  },
+                                  style: AppText.muted,
+                                ),
                               ),
                               Text('${context.watch<ProfileProvider>().units.weight(set.weight)} × ${set.reps}', style: AppText.strong),
+                              if (set.rpe != null) ...[
+                                const SizedBox(width: 8),
+                                Text('@${formatWeight(set.rpe!)}', style: AppText.muted),
+                              ],
                             ],
                           ),
                         ),

@@ -27,13 +27,14 @@ OverloadSuggestion? suggestNext(
   bool lowerBody = false,
   Units units = const Units.kg(),
 }) {
-  final weighted = previous.where((s) => s.weight > 0 && s.reps > 0).toList();
+  final working = previous.where((s) => !s.isWarmup).toList();
+  final weighted = working.where((s) => s.weight > 0 && s.reps > 0).toList();
   if (weighted.isEmpty) return null;
 
   final topWeight = weighted.map((s) => s.weight).reduce((a, b) => a > b ? a : b);
   final topSets = weighted.where((s) => s.weight == topWeight).toList();
   final target = targetReps ?? topSets.map((s) => s.reps).reduce((a, b) => a < b ? a : b);
-  final allHit = topSets.every((s) => s.reps >= target) && topSets.length >= (previous.length / 2).ceil();
+  final allHit = topSets.every((s) => s.reps >= target) && topSets.length >= (working.length / 2).ceil();
 
   if (allHit && targetReps != null) {
     // Step up in the display unit so lb users get round numbers.

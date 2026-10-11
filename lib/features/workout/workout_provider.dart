@@ -48,18 +48,31 @@ class WorkoutSet {
   int reps;
   bool completed;
 
+  /// One of [SetType].
+  String setType;
+
+  /// How hard it felt, 1-10, if recorded.
+  double? rpe;
+
   WorkoutSet({
     this.weight = 0,
     this.reps = 0,
     this.completed = false,
+    this.setType = SetType.normal,
+    this.rpe,
   });
 
-  Map<String, Object?> toJson() => {'weight': weight, 'reps': reps, 'completed': completed};
+  bool get isWarmup => setType == SetType.warmup;
+
+  Map<String, Object?> toJson() =>
+      {'weight': weight, 'reps': reps, 'completed': completed, 'setType': setType, 'rpe': rpe};
 
   factory WorkoutSet.fromJson(Map<String, dynamic> json) => WorkoutSet(
         weight: (json['weight'] as num).toDouble(),
         reps: json['reps'] as int,
         completed: json['completed'] as bool,
+        setType: json['setType'] as String? ?? SetType.normal,
+        rpe: (json['rpe'] as num?)?.toDouble(),
       );
 }
 
@@ -175,6 +188,20 @@ class WorkoutProvider extends ChangeNotifier {
     _changed();
   }
 
+  void setSetType(WorkoutExercise exercise, int setIndex, String type) {
+    if (setIndex < exercise.sets.length) {
+      exercise.sets[setIndex].setType = type;
+      _changed();
+    }
+  }
+
+  void setRpe(WorkoutExercise exercise, int setIndex, double? rpe) {
+    if (setIndex < exercise.sets.length) {
+      exercise.sets[setIndex].rpe = rpe;
+      _changed();
+    }
+  }
+
   void addSet(WorkoutExercise exercise) {
     exercise.sets.add(WorkoutSet());
     _changed();
@@ -264,7 +291,7 @@ class WorkoutProvider extends ChangeNotifier {
       if (completedSets.isEmpty) continue;
 
       for (var set in completedSets) {
-        totalVolume += set.weight * set.reps;
+        if (!set.isWarmup) totalVolume += set.weight * set.reps;
       }
 
       entries.add(ExerciseEntry(
@@ -279,6 +306,8 @@ class WorkoutProvider extends ChangeNotifier {
               position: i,
               weight: completedSets[i].weight,
               reps: completedSets[i].reps,
+              setType: completedSets[i].setType,
+              rpe: completedSets[i].rpe,
             ),
         ],
       ));

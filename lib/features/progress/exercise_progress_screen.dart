@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/workout_repository.dart';
+import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../utils/strength.dart';
@@ -28,10 +29,11 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
       WorkoutRepository.instance.getExerciseHistory(widget.exerciseId);
   _Metric _metric = _Metric.e1rm;
 
+  static Iterable<SetEntry> _work(ExerciseSession s) => s.sets.where((set) => !set.isWarmup);
   static double _bestE1rm(ExerciseSession s) =>
-      s.sets.fold(0.0, (m, set) => estimateOneRepMax(set.weight, set.reps) > m ? estimateOneRepMax(set.weight, set.reps) : m);
-  static double _topWeight(ExerciseSession s) => s.sets.fold(0.0, (m, set) => set.weight > m ? set.weight : m);
-  static double _volume(ExerciseSession s) => s.sets.fold(0.0, (sum, set) => sum + set.weight * set.reps);
+      _work(s).fold(0.0, (m, set) => estimateOneRepMax(set.weight, set.reps) > m ? estimateOneRepMax(set.weight, set.reps) : m);
+  static double _topWeight(ExerciseSession s) => _work(s).fold(0.0, (m, set) => set.weight > m ? set.weight : m);
+  static double _volume(ExerciseSession s) => _work(s).fold(0.0, (sum, set) => sum + set.weight * set.reps);
 
   double _value(ExerciseSession s) => switch (_metric) {
         _Metric.e1rm => _bestE1rm(s),
@@ -152,7 +154,7 @@ class _ExerciseProgressScreenState extends State<ExerciseProgressScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          s.sets.map((set) => '${units.number(set.weight)}×${set.reps}').join('   '),
+                          s.sets.map((set) => '${set.isWarmup ? 'W ' : ''}${units.number(set.weight)}×${set.reps}').join('   '),
                           style: AppText.strong,
                         ),
                       ),

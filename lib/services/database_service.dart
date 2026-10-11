@@ -12,7 +12,7 @@ class DatabaseService {
   static Database? _database;
 
   static const fileName = 'gym_tracker.db';
-  static const schemaVersion = 6;
+  static const schemaVersion = 7;
 
   DatabaseService._init();
 
@@ -38,6 +38,7 @@ class DatabaseService {
       version: schemaVersion,
       onCreate: (db, version) async {
         await _createSchema(db);
+        await _applyV7(db);
         await _seedBuiltins(db);
       },
       onUpgrade: _upgradeDB,
@@ -226,9 +227,57 @@ class DatabaseService {
     }
   }
 
+  /// Creates the v6 schema, for upgrade tests.
+  @visibleForTesting
+  static Future<void> createV6SchemaForTest(DatabaseExecutor db) => instance._createSchema(db);
+
+  /// v7: set types and RPE, custom programs, equipment, and profile fields
+  /// for nutrition targets. Applied on top of the v6 schema.
+  Future<void> _applyV7(DatabaseExecutor db) async {
+    // 'normal', 'warmup', 'drop' or 'failure'; RPE is 1-10 (half steps).
+    await db.execute("ALTER TABLE workout_sets ADD COLUMN setType TEXT NOT NULL DEFAULT 'normal'");
+    await db.execute('ALTER TABLE workout_sets ADD COLUMN rpe REAL');
+
+    // Which custom program scheduled this day, if any.
+    await db.execute('ALTER TABLE schedules ADD COLUMN programId TEXT');
+
+    // Comma-separated equipment codes, e.g. "barbell,dumbbell,pullup_bar".
+    await db.execute('ALTER TABLE profile ADD COLUMN equipment TEXT');
+    await db.execute("ALTER TABLE exercises ADD COLUMN equipment TEXT NOT NULL DEFAULT ''");
+
+    // For calorie and protein targets.
+    await db.execute('ALTER TABLE profile ADD COLUMN sex TEXT');
+    await db.execute('ALTER TABLE profile ADD COLUMN activityLevel TEXT');
+
+    await db.execute('''
+      CREATE TABLE programs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        weekdays TEXT NOT NULL,
+        weeks INTEGER NOT NULL DEFAULT 8,
+        startedOn TEXT,
+        reminderMinutes INTEGER,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE program_workouts (
+        id TEXT PRIMARY KEY,
+        programId TEXT NOT NULL,
+        planId TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_program_workouts_program ON program_workouts (programId)');
+  }
+
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 6) {
       await _migrateLegacy(db);
+    }
+    if (oldVersion < 7) {
+      await _applyV7(db);
     }
   }
 

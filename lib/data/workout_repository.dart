@@ -55,6 +55,8 @@ class WorkoutRepository {
               'position': set.position,
               'weight': set.weight,
               'reps': set.reps,
+              'setType': set.setType,
+              'rpe': set.rpe,
             }),
           );
         }
@@ -146,6 +148,7 @@ class WorkoutRepository {
       JOIN workout_exercises we ON we.id = s.workoutExerciseId
       JOIN workouts w ON w.id = we.workoutId
       WHERE s.deletedAt IS NULL AND we.deletedAt IS NULL AND w.deletedAt IS NULL
+        AND s.setType != 'warmup'
     ''');
     return rows
         .map((r) => SetRecord(
@@ -172,7 +175,7 @@ extension ExerciseHistory on WorkoutRepository {
   Future<List<ExerciseSession>> getExerciseHistory(String exerciseId) async {
     final db = await DatabaseService.instance.database;
     final rows = await db.rawQuery('''
-      SELECT we.id AS entryId, w.startedAt, s.id, s.position, s.weight, s.reps
+      SELECT we.id AS entryId, w.startedAt, s.id, s.position, s.weight, s.reps, s.setType, s.rpe
       FROM workout_sets s
       JOIN workout_exercises we ON we.id = s.workoutExerciseId
       JOIN workouts w ON w.id = we.workoutId

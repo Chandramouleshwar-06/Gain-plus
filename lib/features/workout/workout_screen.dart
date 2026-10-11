@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/format.dart';
 import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
@@ -248,6 +249,18 @@ class _ExerciseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final done = exercise.sets.where((s) => s.completed).length;
     final previous = provider.previousSets[exercise.exerciseId] ?? const <SetEntry>[];
+    // Warm-ups show W, drop sets D, failure sets F; working sets are numbered.
+    final labels = <String>[];
+    var working = 0;
+    for (final s in exercise.sets) {
+      if (!s.isWarmup) working++;
+      labels.add(switch (s.setType) {
+        SetType.warmup => 'W',
+        SetType.drop => 'D',
+        SetType.failure => 'F',
+        _ => '$working',
+      });
+    }
     final units = context.watch<ProfileProvider>().units;
     final suggestion =
         suggestNext(previous, targetReps: exercise.targetReps, lowerBody: exercise.lowerBody, units: units);
@@ -352,6 +365,8 @@ class _ExerciseCard extends StatelessWidget {
                 units: units,
                 set: exercise.sets[i],
                 setNumber: i + 1,
+                label: labels[i],
+                onEditType: () => _editSet(context, provider, exercise, i),
                 previous: i < previous.length ? previous[i] : null,
                 suggestedWeight: suggestion?.weight,
                 onChanged: (weight, reps) => provider.updateSet(exercise, i, weight, reps),
@@ -440,6 +455,10 @@ class _ElapsedTimerState extends State<_ElapsedTimer> {
 class _SetRow extends StatefulWidget {
   final WorkoutSet set;
   final int setNumber;
+
+  /// Shown in the first column: the working set number, or W / D / F.
+  final String label;
+  final VoidCallback onEditType;
   final Units units;
 
   /// Called with the weight in kg.
@@ -456,6 +475,8 @@ class _SetRow extends StatefulWidget {
     super.key,
     required this.set,
     required this.setNumber,
+    required this.label,
+    required this.onEditType,
     required this.units,
     required this.onChanged,
     required this.onToggle,
@@ -523,7 +544,33 @@ class _SetRowState extends State<_SetRow> {
       ),
       child: _SetGridRow(
         children: [
-          Text('${widget.setNumber}', textAlign: TextAlign.center, style: AppText.display(20, weight: FontWeight.w700)),
+          Semantics(
+            button: true,
+            label: 'Set ${widget.setNumber} type and effort',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: widget.onEditType,
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 44,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.label,
+                      textAlign: TextAlign.center,
+                      style: AppText.display(20, weight: FontWeight.w700, color: _labelColor(widget.set.setType)),
+                    ),
+                    if (widget.set.rpe != null)
+                      Text(
+                        '@${formatWeight(widget.set.rpe!)}',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Semantics(
             button: widget.previous != null,
             label: widget.previous == null ? 'No previous set' : 'Use last time\'s values',
@@ -797,6 +844,89 @@ Future<void> _pickExercise(
           ),
         ],
       ),
+    ),
+  );
+}
+
+Color _labelColor(String setType) => switch (setType) {
+      SetType.warmup => const Color(0xFFE8C547),
+      SetType.drop => AppColors.orange,
+      SetType.failure => AppColors.danger,
+      _ => AppColors.text,
+    };
+
+/// Set type and RPE for one set.
+Future<void> _editSet(BuildContext context, WorkoutProvider provider, WorkoutExercise exercise, int index) {
+  const types = [
+    (SetType.normal, 'Working set', 'Counts towards volume and PRs'),
+    (SetType.warmup, 'Warm-up', "Lighter prep set; doesn't count"),
+    (SetType.drop, 'Drop set', 'Weight lowered straight after a set'),
+    (SetType.failure, 'To failure', "Went until you couldn't do another rep"),
+  ];
+  const rpeOptions = [6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
+
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) {
+        final set = exercise.sets[index];
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('SET ${index + 1}', style: AppText.display(26)),
+                const SizedBox(height: 12),
+                RadioGroup<String>(
+                  groupValue: set.setType,
+                  onChanged: (v) => setSheetState(() => provider.setSetType(exercise, index, v!)),
+                  child: Column(
+                    children: [
+                      for (final (type, title, description) in types)
+                        RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          value: type,
+                          activeColor: AppColors.lime,
+                          title: Text(title, style: AppText.strong.copyWith(color: _labelColor(type))),
+                          subtitle: Text(description, style: AppText.muted),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('HOW HARD WAS IT? (RPE)', style: AppText.eyebrow),
+                const SizedBox(height: 4),
+                const Text('10 = nothing left, 8 = two more reps in the tank.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final rpe in rpeOptions)
+                      ChoiceChip(
+                        label: Text(formatWeight(rpe)),
+                        selected: set.rpe == rpe,
+                        showCheckmark: false,
+                        labelStyle: TextStyle(
+                          color: set.rpe == rpe ? AppColors.onLime : AppColors.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: (selected) =>
+                            setSheetState(() => provider.setRpe(exercise, index, selected ? rpe : null)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(text: 'Done', onPressed: () => Navigator.pop(sheetContext)),
+              ],
+            ),
+          ),
+        );
+      },
     ),
   );
 }

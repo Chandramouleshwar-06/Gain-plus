@@ -72,18 +72,36 @@ class ExerciseEntry {
 }
 
 /// A completed set. Only completed sets are saved.
+/// Kinds of set. Warm-ups don't count towards volume, PRs or progress.
+class SetType {
+  static const normal = 'normal';
+  static const warmup = 'warmup';
+  static const drop = 'drop';
+  static const failure = 'failure';
+
+  static const all = [normal, warmup, drop, failure];
+}
+
 class SetEntry {
   final String id;
   final int position;
   final double weight;
   final int reps;
+  final String setType;
+
+  /// Rate of perceived exertion, 1-10 (half steps), if recorded.
+  final double? rpe;
 
   SetEntry({
     required this.id,
     required this.position,
     required this.weight,
     required this.reps,
+    this.setType = SetType.normal,
+    this.rpe,
   });
+
+  bool get isWarmup => setType == SetType.warmup;
 
   factory SetEntry.fromMap(Map<String, Object?> map) {
     return SetEntry(
@@ -91,6 +109,8 @@ class SetEntry {
       position: map['position'] as int,
       weight: (map['weight'] as num).toDouble(),
       reps: map['reps'] as int,
+      setType: map['setType'] as String? ?? SetType.normal,
+      rpe: (map['rpe'] as num?)?.toDouble(),
     );
   }
 }

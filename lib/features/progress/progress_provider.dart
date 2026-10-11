@@ -33,6 +33,9 @@ class ProgressProvider extends ChangeNotifier {
   Map<String, PersonalRecord> personalRecords = {};
 
   bool loaded = false;
+
+  /// Working sets from the last 14 days, for recovery and muscle balance.
+  List<SetRecord> recentSets = [];
   WeekSummary? thisWeek;
   WeekSummary? lastWeek;
   int longestStreakDays = 0;
@@ -74,6 +77,8 @@ class ProgressProvider extends ChangeNotifier {
     final volumes = await repo.getVolumes();
     weeklyVolume = calculateWeeklyVolume(volumes, DateTime.now());
     final sets = await repo.getAllSets();
+    final since = DateTime.now().subtract(const Duration(days: 14));
+    recentSets = sets.where((s) => s.date != null && s.date!.isAfter(since)).toList();
     final thisMonday = mondayOf(DateTime.now());
     thisWeek = summarizeWeek(weekStart: thisMonday, volumes: volumes, sets: sets);
     lastWeek = summarizeWeek(

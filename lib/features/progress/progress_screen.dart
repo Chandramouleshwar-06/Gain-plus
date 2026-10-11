@@ -5,7 +5,12 @@ import '../../widgets/app_card.dart';
 import '../../widgets/ui.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_provider.dart';
+import '../../data/muscles.dart';
+import '../exercise/exercise_provider.dart';
+import 'muscle_analysis.dart';
+import 'muscle_balance_chart.dart';
 import 'progress_provider.dart';
+import 'recovery_map.dart';
 import '../../widgets/charts.dart';
 import 'exercise_progress_screen.dart';
 import 'workout_detail_screen.dart';
@@ -62,6 +67,7 @@ class ProgressScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     const _ThisWeekCard(),
                     const SizedBox(height: 24),
+                    const _MuscleSections(),
                     const SectionHeader(title: 'Weekly volume'),
                     AppCard(
                       padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
@@ -233,6 +239,39 @@ class _ThisWeekCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Recovery map and muscle balance, from the last two weeks of sets.
+class _MuscleSections extends StatelessWidget {
+  const _MuscleSections();
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = context.watch<ProgressProvider>();
+    final exercises = context.watch<ExerciseProvider>();
+    final now = DateTime.now();
+    MuscleMap? musclesOf(String exerciseId, String name) {
+      final exercise = exercises.byId(exerciseId);
+      return exercise != null ? musclesFor(exercise) : musclesForName(name);
+    }
+
+    final sets = <MuscleSet>[
+      for (final s in progress.recentSets)
+        if (musclesOf(s.exerciseId, s.exerciseName) case final muscles?) MuscleSet(s.date!, muscles),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader(title: 'Recovery'),
+        AppCard(child: RecoveryMap(load: muscleLoad(sets, now))),
+        const SizedBox(height: 24),
+        const SectionHeader(title: 'Muscle balance'),
+        AppCard(child: MuscleBalanceChart(setsByGroup: weeklyGroupSets(sets, now))),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }

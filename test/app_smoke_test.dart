@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gain_plus/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gain_plus/services/database_service.dart';
+import 'package:gain_plus/features/exercise/exercise_guide_screen.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/test_db.dart';
@@ -239,6 +240,21 @@ void main() {
         expect(find.text('SQUAT (BARBELL)'), findsOneWidget);
         // Leg Press needs a machine, which a home gym doesn't have.
         expect(find.textContaining('Needs a machine'), findsWidgets);
+
+        // How-to for the first exercise, from its menu.
+        await tester.tap(find.byTooltip('Exercise options').first);
+        await settle(tester);
+        await tester.tap(find.text('How to do it'));
+        await settle(tester);
+        expect(find.text('HOW TO DO IT'), findsOneWidget);
+        expect(find.textContaining('Works: Quads'), findsOneWidget);
+        await tester.dragUntilVisible(
+          find.text('Watch a demo'),
+          find.descendant(of: find.byType(ExerciseGuideScreen), matching: find.byType(ListView)),
+          const Offset(0, -300),
+        );
+        await tester.pageBack();
+        await settle(tester);
 
         // Log 100 kg x 5 on the first set; ticking it starts the rest timer.
         await tester.enterText(find.byType(TextField).at(0), '100');

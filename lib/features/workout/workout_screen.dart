@@ -14,6 +14,7 @@ import '../../utils/units.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../../data/equipment.dart';
+import '../exercise/exercise_guide_screen.dart';
 import '../exercise/exercise_provider.dart';
 import '../plans/plans_screen.dart';
 import '../profile/profile_provider.dart';
@@ -233,6 +234,13 @@ class _ExerciseCard extends StatelessWidget {
 
   Future<void> _onMenu(BuildContext context, String value) async {
     switch (value) {
+      case 'howto':
+        final known = context.read<ExerciseProvider>().byId(exercise.exerciseId);
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => ExerciseGuideScreen(
+            exercise: known ?? Exercise(id: exercise.exerciseId, name: exercise.name, muscleGroup: '', notes: ''),
+          ),
+        ));
       case 'swap':
         await _pickExercise(
           context,
@@ -314,6 +322,7 @@ class _ExerciseCard extends StatelessWidget {
                   color: AppColors.surfaceHigh,
                   onSelected: (value) => _onMenu(context, value),
                   itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'howto', child: Text('How to do it')),
                     const PopupMenuItem(value: 'swap', child: Text('Swap exercise')),
                     if (index > 0) const PopupMenuItem(value: 'up', child: Text('Move up')),
                     if (index < provider.exercises.length - 1)

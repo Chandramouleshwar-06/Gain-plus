@@ -232,3 +232,40 @@ class _RecoveryMapState extends State<RecoveryMap> {
     );
   }
 }
+
+/// Front and back figures with the muscles an exercise works: [primary]
+/// in lime, [secondary] in a lighter lime.
+class MuscleHighlight extends StatelessWidget {
+  final List<Muscle> primary;
+  final List<Muscle> secondary;
+  final double height;
+
+  const MuscleHighlight({super.key, required this.primary, required this.secondary, this.height = 170});
+
+  Color _colorFor(Muscle m) => primary.contains(m)
+      ? AppColors.lime
+      : secondary.contains(m)
+          ? AppColors.lime.withValues(alpha: 0.4)
+          : const Color(0xFF3A3A3F);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget figure(String label, List<_Region> regions) => Expanded(
+          child: Column(
+            children: [
+              CustomPaint(size: Size(double.infinity, height), painter: _BodyPainter(regions, _colorFor, null)),
+              const SizedBox(height: 4),
+              Text(label, style: AppText.eyebrow),
+            ],
+          ),
+        );
+
+    return Semantics(
+      label: 'Works ${primary.map((m) => m.label).join(', ')}'
+          '${secondary.isEmpty ? '' : '; also ${secondary.map((m) => m.label).join(', ')}'}',
+      child: ExcludeSemantics(
+        child: Row(children: [figure('FRONT', _front), figure('BACK', _back)]),
+      ),
+    );
+  }
+}

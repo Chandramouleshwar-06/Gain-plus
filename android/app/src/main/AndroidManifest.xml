@@ -91,6 +91,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- "Watch a demo" opens YouTube or the browser -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
         <!-- Check whether Health Connect is installed -->
         <package android:name="com.google.android.apps.healthdata"/>
         <intent>

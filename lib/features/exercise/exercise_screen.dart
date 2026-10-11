@@ -7,8 +7,8 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
-import '../plans/plans_provider.dart';
 import 'exercise_provider.dart';
+import 'exercise_guide_screen.dart';
 
 /// The Exercises section of the Train tab: the exercise library.
 class ExercisesView extends StatefulWidget {
@@ -313,58 +313,5 @@ void _showAddExerciseSheet(BuildContext context, String initialName) {
 }
 
 void _showExerciseDetails(BuildContext context, Exercise exercise) {
-  showModalBottomSheet(
-    context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(exercise.name.toUpperCase(), style: AppText.display(28)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [
-                InfoChip(exercise.muscleGroup),
-                if (exercise.isCustom) const InfoChip('Custom'),
-              ],
-            ),
-            if (exercise.notes.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Text('NOTES', style: AppText.eyebrow),
-              const SizedBox(height: 4),
-              Text(exercise.notes, style: AppText.body),
-            ],
-            if (exercise.isCustom) ...[
-              const SizedBox(height: 20),
-              TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Delete exercise'),
-                onPressed: () async {
-                  final navigator = Navigator.of(sheetContext);
-                  final exercises = context.read<ExerciseProvider>();
-                  final plans = context.read<PlansProvider>();
-                  final ok = await confirmDialog(
-                    sheetContext,
-                    title: 'Delete exercise?',
-                    message:
-                        '${exercise.name} will be removed from your plans. Past workouts keep it.',
-                    confirmLabel: 'Delete',
-                    destructive: true,
-                  );
-                  if (!ok) return;
-                  await exercises.deleteExercise(exercise.id);
-                  await plans.loadPlans();
-                  navigator.pop();
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    ),
-  );
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExerciseGuideScreen(exercise: exercise)));
 }

@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../plans/plans_screen.dart';
 import '../profile/profile_provider.dart';
 import '../settings/settings_provider.dart';
 import '../progress/achievement_tracker.dart';
@@ -41,12 +44,38 @@ class WorkoutScreen extends StatelessWidget {
                 _Header(provider: provider),
                 const _RestTimerCard(),
                 Expanded(
-                  child: ListView.separated(
+                  child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    itemCount: provider.exercises.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) =>
-                        _ExerciseCard(exercise: provider.exercises[index], provider: provider),
+                    children: [
+                      if (provider.exercises.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: EmptyState(
+                            icon: Icons.fitness_center_rounded,
+                            title: 'Add your first exercise',
+                            message: 'Pick exercises as you go. Each one gets three sets to start.',
+                          ),
+                        ),
+                      for (var i = 0; i < provider.exercises.length; i++) ...[
+                        _ExerciseCard(
+                          key: ObjectKey(provider.exercises[i]),
+                          exercise: provider.exercises[i],
+                          index: i,
+                          provider: provider,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      PrimaryButton(
+                        text: 'Add exercise',
+                        icon: Icons.add_rounded,
+                        variant: provider.exercises.isEmpty ? ButtonVariant.primary : ButtonVariant.secondary,
+                        onPressed: () => _pickExercise(
+                          context,
+                          provider,
+                          onPick: (exercise) => provider.addExercise(workoutExerciseFor(exercise)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -181,9 +210,39 @@ class _Header extends StatelessWidget {
 
 class _ExerciseCard extends StatelessWidget {
   final WorkoutExercise exercise;
+  final int index;
   final WorkoutProvider provider;
 
-  const _ExerciseCard({required this.exercise, required this.provider});
+  const _ExerciseCard({super.key, required this.exercise, required this.index, required this.provider});
+
+  Future<void> _onMenu(BuildContext context, String value) async {
+    switch (value) {
+      case 'swap':
+        await _pickExercise(
+          context,
+          provider,
+          title: 'SWAP ${exercise.name.toUpperCase()}',
+          onPick: (replacement) => provider.replaceExercise(index, workoutExerciseFor(replacement)),
+        );
+      case 'up':
+        provider.moveExercise(index, index - 1);
+      case 'down':
+        provider.moveExercise(index, index + 1);
+      case 'remove':
+        final hasLogged = exercise.sets.any((s) => s.completed || s.weight > 0 || s.reps > 0);
+        if (hasLogged &&
+            !await confirmDialog(
+              context,
+              title: 'Remove ${exercise.name}?',
+              message: 'The sets you logged for it in this workout will be lost.',
+              confirmLabel: 'Remove',
+              destructive: true,
+            )) {
+          return;
+        }
+        provider.removeExercise(index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +268,27 @@ class _ExerciseCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('$done / ${exercise.sets.length}', style: AppText.muted),
+              ),
+              SizedBox(
+                width: 36,
+                height: 32,
+                child: PopupMenuButton<String>(
+                  tooltip: 'Exercise options',
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.textMuted),
+                  color: AppColors.surfaceHigh,
+                  onSelected: (value) => _onMenu(context, value),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'swap', child: Text('Swap exercise')),
+                    if (index > 0) const PopupMenuItem(value: 'up', child: Text('Move up')),
+                    if (index < provider.exercises.length - 1)
+                      const PopupMenuItem(value: 'down', child: Text('Move down')),
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove exercise', style: TextStyle(color: AppColors.danger)),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -674,4 +754,40 @@ class _RestTimerCardState extends State<_RestTimerCard> {
       ),
     );
   }
+}
+
+/// Exercise picker sheet; exercises already in the workout are hidden.
+Future<void> _pickExercise(
+  BuildContext context,
+  WorkoutProvider provider, {
+  required ValueChanged<Exercise> onPick,
+  String title = 'ADD EXERCISE',
+}) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scroll) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Align(alignment: Alignment.centerLeft, child: Text(title, style: AppText.display(24))),
+          ),
+          Expanded(
+            child: ExercisePicker(
+              scrollController: scroll,
+              excludeIds: provider.exercises.map((e) => e.exerciseId).toSet(),
+              onPick: (exercise) {
+                Navigator.pop(sheetContext);
+                onPick(exercise);
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -138,6 +138,42 @@ class WorkoutProvider extends ChangeNotifier {
     _loadPreviousSets();
   }
 
+  /// Adds an exercise to the end of the workout.
+  void addExercise(WorkoutExercise exercise) {
+    exercises.add(exercise);
+    _changed();
+    _loadPreviousSets();
+  }
+
+  /// Swaps the exercise at [index] for [replacement], keeping how many sets
+  /// were planned. Logged values are cleared since they were for the old one.
+  void replaceExercise(int index, WorkoutExercise replacement) {
+    if (index < 0 || index >= exercises.length) return;
+    final setCount = exercises[index].sets.length;
+    exercises[index] = WorkoutExercise(
+      exerciseId: replacement.exerciseId,
+      name: replacement.name,
+      sets: [for (var i = 0; i < (setCount == 0 ? 1 : setCount); i++) WorkoutSet()],
+      targetReps: replacement.targetReps,
+      increment: replacement.increment,
+    );
+    _changed();
+    _loadPreviousSets();
+  }
+
+  void removeExercise(int index) {
+    if (index < 0 || index >= exercises.length) return;
+    exercises.removeAt(index);
+    _changed();
+  }
+
+  /// Moves the exercise at [from] to [to] (both indices in the current list).
+  void moveExercise(int from, int to) {
+    if (from < 0 || from >= exercises.length || to < 0 || to >= exercises.length || from == to) return;
+    exercises.insert(to, exercises.removeAt(from));
+    _changed();
+  }
+
   void addSet(WorkoutExercise exercise) {
     exercise.sets.add(WorkoutSet());
     _changed();

@@ -260,9 +260,20 @@ class _TodayCard extends StatelessWidget {
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: plans.length,
-                  itemBuilder: (_, index) {
-                    final plan = plans[index];
+                  itemCount: plans.length + 1,
+                  itemBuilder: (_, i) {
+                    if (i == 0) {
+                      return ListTile(
+                        leading: const Icon(Icons.bolt_rounded, color: AppColors.lime),
+                        title: const Text('Quick workout', style: AppText.strong),
+                        subtitle: const Text('Start empty and add exercises as you go', style: AppText.muted),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          startEmptyWorkout(context);
+                        },
+                      );
+                    }
+                    final plan = plans[i - 1];
                     return ListTile(
                       leading: const Icon(Icons.fitness_center_rounded, color: AppColors.lime),
                       title: Text(plan.name, style: AppText.strong),

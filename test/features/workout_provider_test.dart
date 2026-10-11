@@ -110,6 +110,31 @@ void main() {
     expect(details.exercises.single.sets.map((s) => s.reps), [12]);
   });
 
+  test('exercises can be added, swapped, moved and removed mid-workout', () async {
+    final provider = WorkoutProvider();
+    provider.startWorkout(null, 'Quick workout', []);
+    WorkoutExercise ex(String id, {int sets = 3}) =>
+        WorkoutExercise(exerciseId: id, name: id, sets: [for (var i = 0; i < sets; i++) WorkoutSet()]);
+
+    provider.addExercise(ex('bench'));
+    provider.addExercise(ex('row', sets: 4));
+    provider.addExercise(ex('curl'));
+    expect(provider.exercises.map((e) => e.exerciseId), ['bench', 'row', 'curl']);
+
+    provider.updateSet(provider.exercises[1], 0, 60, 10);
+    provider.replaceExercise(1, ex('pulldown', sets: 1));
+    expect(provider.exercises[1].exerciseId, 'pulldown');
+    expect(provider.exercises[1].sets.length, 4, reason: 'keeps the planned set count');
+    expect(provider.exercises[1].sets.first.weight, 0, reason: 'old values are cleared');
+
+    provider.moveExercise(2, 0);
+    expect(provider.exercises.map((e) => e.exerciseId), ['curl', 'bench', 'pulldown']);
+
+    provider.removeExercise(1);
+    expect(provider.exercises.map((e) => e.exerciseId), ['curl', 'pulldown']);
+    await provider.discardWorkout();
+  });
+
   test('streak counts consecutive days ending today or yesterday', () {
     final now = DateTime(2026, 10, 6, 20);
     DateTime day(int d, [int h = 9]) => DateTime(2026, 10, d, h);

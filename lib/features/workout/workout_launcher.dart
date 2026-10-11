@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/exercise.dart';
 import '../../models/workout_plan.dart';
 import '../exercise/exercise_provider.dart';
 import 'overload.dart';
@@ -33,13 +34,7 @@ Future<void> startPlanWorkout(BuildContext context, WorkoutPlan plan) async {
   for (final item in plan.items) {
     final exercise = exerciseProvider.byId(item.exerciseId);
     if (exercise == null) continue;
-    workoutExercises.add(WorkoutExercise(
-      exerciseId: item.exerciseId,
-      name: exercise.name,
-      sets: [for (var i = 0; i < item.targetSets; i++) WorkoutSet()],
-      targetReps: item.targetReps,
-      increment: weightIncrement(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup),
-    ));
+    workoutExercises.add(workoutExerciseFor(exercise, sets: item.targetSets, targetReps: item.targetReps));
   }
 
   if (workoutExercises.isEmpty) {
@@ -66,4 +61,22 @@ String formatElapsed(Duration elapsed) {
   final minutes = elapsed.inMinutes.remainder(60);
   final seconds = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
   return hours > 0 ? '$hours:${minutes.toString().padLeft(2, '0')}:$seconds' : '$minutes:$seconds';
+}
+
+/// A workout entry for [exercise] with [sets] empty sets.
+WorkoutExercise workoutExerciseFor(Exercise exercise, {int sets = 3, int? targetReps}) => WorkoutExercise(
+      exerciseId: exercise.id,
+      name: exercise.name,
+      sets: [for (var i = 0; i < sets; i++) WorkoutSet()],
+      targetReps: targetReps,
+      increment: weightIncrement(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup),
+    );
+
+/// Starts a workout with no exercises; they're added as you go.
+Future<void> startEmptyWorkout(BuildContext context) async {
+  final workoutProvider = context.read<WorkoutProvider>();
+  if (!workoutProvider.isWorkoutActive) {
+    workoutProvider.startWorkout(null, 'Quick workout', []);
+  }
+  await openActiveWorkout(context);
 }

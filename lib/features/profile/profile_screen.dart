@@ -361,34 +361,18 @@ class _BodyWeightCard extends StatelessWidget {
 /// Asks for today's body weight and logs it.
 Future<void> showLogWeightDialog(BuildContext context) async {
   final provider = context.read<ProfileProvider>();
-  final controller = TextEditingController(
-    text: provider.latestBodyWeight == null ? '' : formatWeight(provider.latestBodyWeight!),
-  );
-  final value = await showDialog<double>(
+  final text = await showDialog<String>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Log body weight'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-        decoration: const InputDecoration(suffixText: 'kg'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, double.tryParse(controller.text.replaceAll(',', '.'))),
-          child: const Text('Save'),
-        ),
-      ],
+    builder: (_) => TextPromptDialog(
+      title: 'Log body weight',
+      action: 'Save',
+      initial: provider.latestBodyWeight == null ? '' : formatWeight(provider.latestBodyWeight!),
+      suffix: 'kg',
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
     ),
   );
-  controller.dispose();
+  final value = text == null ? null : double.tryParse(text.replaceAll(',', '.'));
   if (value == null || value <= 0) return;
   await provider.logBodyWeight(value);
   if (!context.mounted) return;

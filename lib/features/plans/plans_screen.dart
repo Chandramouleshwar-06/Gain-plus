@@ -352,29 +352,16 @@ Future<String?> promptForText(
   String? hint,
   String? initial,
 }) async {
-  final controller = TextEditingController(text: initial);
   final result = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(hintText: hint),
-        onSubmitted: (v) => Navigator.pop(context, v),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-          child: const Text('Cancel'),
-        ),
-        TextButton(onPressed: () => Navigator.pop(context, controller.text), child: Text(action)),
-      ],
+    builder: (_) => TextPromptDialog(
+      title: title,
+      action: action,
+      hint: hint,
+      initial: initial,
+      textCapitalization: TextCapitalization.words,
     ),
   );
-  controller.dispose();
   final trimmed = result?.trim();
   return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
 }

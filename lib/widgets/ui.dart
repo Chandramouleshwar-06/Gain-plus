@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
 /// Big condensed screen title with an optional eyebrow and trailing widget.
@@ -230,4 +231,67 @@ Future<bool> confirmDialog(
     ),
   );
   return result ?? false;
+}
+
+/// One-field text dialog. Owns its controller, so the text field can keep
+/// drawing during the closing animation (disposing the controller right
+/// after showDialog returns crashes).
+class TextPromptDialog extends StatefulWidget {
+  final String title;
+  final String action;
+  final String? hint;
+  final String? initial;
+  final String? suffix;
+  final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextCapitalization textCapitalization;
+
+  const TextPromptDialog({
+    super.key,
+    required this.title,
+    required this.action,
+    this.hint,
+    this.initial,
+    this.suffix,
+    this.keyboardType = TextInputType.text,
+    this.inputFormatters,
+    this.textCapitalization = TextCapitalization.none,
+  });
+
+  @override
+  State<TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends State<TextPromptDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: widget.keyboardType,
+        inputFormatters: widget.inputFormatters,
+        textCapitalization: widget.textCapitalization,
+        decoration: InputDecoration(hintText: widget.hint, suffixText: widget.suffix),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: () => Navigator.pop(context, _controller.text), child: Text(widget.action)),
+      ],
+    );
+  }
 }

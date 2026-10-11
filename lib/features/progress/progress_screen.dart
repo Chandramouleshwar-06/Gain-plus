@@ -172,18 +172,30 @@ class _ThisWeekCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${week.workouts}/$target',
-                  style: AppText.display(44, color: hit ? AppColors.onLime : AppColors.text)),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(hit ? 'target hit!' : 'workouts',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: hit ? AppColors.onLime : AppColors.textMuted)),
+              // Both sides scale down rather than overflow with large text.
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${week.workouts}/$target',
+                          style: AppText.display(44, color: hit ? AppColors.onLime : AppColors.text)),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(hit ? 'target hit!' : 'workouts',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: hit ? AppColors.onLime : AppColors.textMuted)),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

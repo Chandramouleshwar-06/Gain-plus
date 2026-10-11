@@ -24,16 +24,20 @@ class AchievementsGrid extends StatelessWidget {
         children: [
           Text('$unlocked of ${achievements.length} unlocked', style: AppText.muted),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 8,
-            childAspectRatio: 0.72,
-            children: [
-              for (final a in achievements) _Badge(achievement: a, stats: stats),
-            ],
+          // Four per row; each badge is as tall as its label needs, so large
+          // system font sizes don't overflow a fixed-height cell.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth - 3 * 8) / 4;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 14,
+                children: [
+                  for (final a in achievements)
+                    SizedBox(width: width, child: _Badge(achievement: a, stats: stats)),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -60,6 +64,7 @@ class _Badge extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => _showDetails(context, done, progress),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: 58,

@@ -593,13 +593,23 @@ class _RestTimerCardState extends State<_RestTimerCard> {
         children: [
           Row(
             children: [
-              Text('REST', style: AppText.eyebrow.copyWith(color: AppColors.lime)),
-              const SizedBox(width: 10),
-              Text(
-                formatElapsed(Duration(seconds: seconds)),
-                style: AppText.display(34).copyWith(fontFeatures: AppText.tabular),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      Text('REST', style: AppText.eyebrow.copyWith(color: AppColors.lime)),
+                      const SizedBox(width: 10),
+                      Text(
+                        formatElapsed(Duration(seconds: seconds)),
+                        style: AppText.display(34).copyWith(fontFeatures: AppText.tabular),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               _restButton('−15', () => provider.adjustRest(-15), label: 'Remove 15 seconds'),
               const SizedBox(width: 6),
               _restButton('+15', () => provider.adjustRest(15), label: 'Add 15 seconds'),

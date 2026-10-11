@@ -14,17 +14,36 @@ class OpenFoodFacts {
   /// Foods matching [query], per serving when the product gives a serving
   /// size, otherwise per 100 g. Products without calories are skipped.
   Future<List<Food>> search(String query) async {
-    final uri = Uri.https('world.openfoodfacts.org', '/cgi/search.pl', {
-      'search_terms': query,
-      'search_simple': '1',
-      'action': 'process',
-      'json': '1',
-      'page_size': '25',
-      'fields': 'code,product_name,brands,nutriments,serving_size,serving_quantity',
-    });
-    final response = await _client.get(uri, headers: {'User-Agent': _userAgent}).timeout(const Duration(seconds: 15));
+    // The search service is fast and reliable; the older search on the
+    // main site is slower and often busy (503), so it's only a fallback.
+    try {
+      return await _get(
+        Uri.https('search.openfoodfacts.org', '/search', {'q': query, 'page_size': '25', 'fields': _fields}),
+        listKey: 'hits',
+      );
+    } catch (e) {
+      return _get(
+        Uri.https('world.openfoodfacts.org', '/cgi/search.pl', {
+          'search_terms': query,
+          'search_simple': '1',
+          'action': 'process',
+          'json': '1',
+          'page_size': '25',
+          'fields': _fields,
+        }),
+        listKey: 'products',
+      );
+    }
+  }
+
+  static const _fields = 'code,product_name,brands,nutriments,serving_size,serving_quantity';
+
+  Future<List<Food>> _get(Uri uri, {required String listKey}) async {
+    final response = await _client.get(uri, headers: {'User-Agent': _userAgent}).timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) throw OpenFoodFactsException('Search failed (${response.statusCode})');
-    final products = (jsonDecode(response.body) as Map<String, dynamic>)['products'] as List? ?? [];
+    final body = jsonDecode(response.body);
+    final products = body is Map ? body[listKey] : null;
+    if (products is! List) throw OpenFoodFactsException('Unexpected search response');
     return products.whereType<Map>().map(parseProduct).whereType<Food>().toList();
   }
 
@@ -44,7 +63,13 @@ class OpenFoodFacts {
     final perServing = grams != null && grams > 0 && grams < 2000;
     final factor = perServing ? grams / 100 : 1.0;
     final servingName = perServing ? (p['serving_size'] is String ? p['serving_size'] as String : '${_trim(grams)} g') : '100 g';
-    final brand = (p['brands'] is String ? p['brands'] as String : null)?.split(',').first.trim();
+    // A comma-separated string on the main site, a list from the search service.
+    final brands = p['brands'];
+    final brand = switch (brands) {
+      String s => s.split(',').first.trim(),
+      List l when l.isNotEmpty => l.first.toString().trim(),
+      _ => null,
+    };
 
     return Food(
       id: 'off-$code',

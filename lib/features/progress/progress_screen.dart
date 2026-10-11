@@ -266,7 +266,7 @@ class _MuscleSections extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SectionHeader(title: 'Recovery'),
-        AppCard(child: RecoveryMap(load: muscleLoad(sets, now))),
+        AppCard(child: RecoveryMap(load: muscleLoad(sets, now), readyInHours: hoursUntilReady(sets, now))),
         const SizedBox(height: 24),
         const SectionHeader(title: 'Muscle balance'),
         AppCard(child: MuscleBalanceChart(setsByGroup: weeklyGroupSets(sets, now))),

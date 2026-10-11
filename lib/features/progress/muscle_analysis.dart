@@ -42,6 +42,27 @@ double recoveryFor(Muscle muscle, Map<Muscle, double> load) =>
 
 enum RecoveryStatus { fresh, recovering, tired }
 
+/// Whole hours until each muscle that isn't ready yet becomes ready
+/// (checked hour by hour, up to the longest recovery time).
+Map<Muscle, int> hoursUntilReady(Iterable<MuscleSet> sets, DateTime now) {
+  final pending = {
+    for (final m in Muscle.values)
+      if (statusFor(recoveryFor(m, muscleLoad(sets, now))) != RecoveryStatus.fresh) m,
+  };
+  final result = <Muscle, int>{};
+  final maxHours = Muscle.values.map((m) => m.recoveryHours).reduce((a, b) => a > b ? a : b);
+  for (var h = 1; h <= maxHours && pending.isNotEmpty; h++) {
+    final load = muscleLoad(sets, now.add(Duration(hours: h)));
+    for (final m in pending.toList()) {
+      if (statusFor(recoveryFor(m, load)) == RecoveryStatus.fresh) {
+        result[m] = h;
+        pending.remove(m);
+      }
+    }
+  }
+  return result;
+}
+
 RecoveryStatus statusFor(double recovery) => recovery >= 0.85
     ? RecoveryStatus.fresh
     : recovery >= 0.45

@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:gain_plus/data/builtin_foods.dart';
 import 'package:gain_plus/features/nutrition/nutrition_provider.dart';
 import 'package:gain_plus/features/nutrition/targets.dart';
@@ -68,6 +71,35 @@ void main() {
 
     expect(OpenFoodFacts.parseProduct({'code': '1', 'product_name': 'No energy', 'nutriments': {}}), isNull);
     expect(OpenFoodFacts.parseProduct({'code': '1', 'nutriments': {'energy-kcal_100g': 1}}), isNull);
+  });
+
+  test('search uses the search service, falling back to the main site when it fails', () async {
+    const product = {
+      'code': '89',
+      'product_name': 'Malai Paneer',
+      'brands': ['Amul', 'Other'],
+      'nutriments': {'energy-kcal_100g': 314, 'proteins_100g': 20},
+    };
+    final hosts = <String>[];
+    var searchServiceUp = true;
+    final client = MockClient((request) async {
+      hosts.add(request.url.host);
+      if (request.url.host == 'search.openfoodfacts.org') {
+        return searchServiceUp ? http.Response(jsonEncode({'hits': [product]}), 200) : http.Response('busy', 503);
+      }
+      return http.Response(jsonEncode({'products': [{...product, 'brands': 'Amul, Other'}]}), 200);
+    });
+    final off = OpenFoodFacts(client);
+
+    final first = await off.search('paneer');
+    expect(first.single.brand, 'Amul', reason: 'brands as a list');
+    expect(hosts, ['search.openfoodfacts.org']);
+
+    searchServiceUp = false;
+    hosts.clear();
+    final fallback = await off.search('paneer');
+    expect(fallback.single.brand, 'Amul', reason: 'brands as a string');
+    expect(hosts, ['search.openfoodfacts.org', 'world.openfoodfacts.org']);
   });
 
   test('built-in foods have unique ids and sane numbers', () {

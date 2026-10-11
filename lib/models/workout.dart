@@ -5,6 +5,9 @@ class Workout {
   final DateTime startedAt;
   final int durationSeconds;
   final double totalVolume;
+
+  /// Estimated calories burned, when known.
+  final double? kcal;
   final List<ExerciseEntry> exercises;
 
   Workout({
@@ -14,6 +17,7 @@ class Workout {
     required this.startedAt,
     required this.durationSeconds,
     required this.totalVolume,
+    this.kcal,
     this.exercises = const [],
   });
 
@@ -27,6 +31,7 @@ class Workout {
       'startedAt': startedAt.millisecondsSinceEpoch,
       'durationSeconds': durationSeconds,
       'totalVolume': totalVolume,
+      'kcal': kcal,
     };
   }
 
@@ -38,6 +43,7 @@ class Workout {
       startedAt: DateTime.fromMillisecondsSinceEpoch(map['startedAt'] as int),
       durationSeconds: map['durationSeconds'] as int,
       totalVolume: (map['totalVolume'] as num).toDouble(),
+      kcal: (map['kcal'] as num?)?.toDouble(),
       exercises: exercises,
     );
   }

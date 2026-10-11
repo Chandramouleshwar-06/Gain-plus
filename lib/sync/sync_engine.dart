@@ -21,6 +21,7 @@ const syncedTables = [
   'body_weights',
   'foods',
   'food_logs',
+  'activities',
 ];
 
 /// Columns that are only unique among live rows: two devices can each

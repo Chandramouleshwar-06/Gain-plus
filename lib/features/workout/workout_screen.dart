@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../data/activity_types.dart';
+import '../activity/activity_provider.dart';
+import '../nutrition/nutrition_provider.dart';
 import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../theme/app_theme.dart';
@@ -176,8 +179,13 @@ class _Header extends StatelessWidget {
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final progress = context.read<ProgressProvider>();
     final profile = context.read<ProfileProvider>();
+    final activity = context.read<ActivityProvider>();
+    final nutrition = context.read<NutritionProvider>();
     try {
-      await provider.finishWorkout();
+      final body = bodyMetricsOf(profile);
+      await provider.finishWorkout(
+        estimateBurn: (duration) => estimateKcal(met: strengthTrainingMet, body: body, duration: duration),
+      );
     } catch (e) {
       debugPrint('Failed to save workout: $e');
       messenger.showSnackBar(
@@ -188,6 +196,8 @@ class _Header extends StatelessWidget {
     messenger.showSnackBar(const SnackBar(content: Text('Workout saved. Great job!')));
     // Refresh streak, recent workouts and PRs on Home and Progress.
     await progress.loadData();
+    // Calories burned show on Home and in nutrition.
+    await Future.wait([activity.load(), nutrition.load()]);
     final achieved = await profile.markAchievedGoals(progress.prKgByExerciseId);
     if (achieved.isNotEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('Goal reached! Check your profile.')));

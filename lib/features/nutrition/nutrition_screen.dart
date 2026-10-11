@@ -8,6 +8,7 @@ import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../activity/activities_screen.dart';
 import '../profile/profile_provider.dart';
 import 'food_search_screen.dart';
 import 'nutrition_provider.dart';
@@ -70,6 +71,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
           ),
           const SizedBox(height: 12),
           if (targets == null) const _SetUpTargetsCard() else _Summary(totals: nutrition.totals, targets: targets),
+          const SizedBox(height: 12),
+          _EnergyBalance(eaten: nutrition.totals.kcal, burned: nutrition.burned),
           const SizedBox(height: 20),
           for (final meal in meals) _MealSection(meal: meal),
           const SizedBox(height: 8),
@@ -387,6 +390,48 @@ class _TargetsSetupSheetState extends State<_TargetsSetupSheet> {
             PrimaryButton(text: 'Save', onPressed: _save),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Eaten, burned and the difference. Your targets already allow for your
+/// usual training (activity level), so this doesn't change "kcal left".
+class _EnergyBalance extends StatelessWidget {
+  final double eaten;
+  final double burned;
+  const _EnergyBalance({required this.eaten, required this.burned});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget stat(String label, double value, {Color? color}) => Expanded(
+          child: Column(
+            children: [
+              Text(label, style: AppText.eyebrow),
+              const SizedBox(height: 2),
+              Text('${value.round()}', style: AppText.display(26, color: color ?? AppColors.text)),
+            ],
+          ),
+        );
+
+    return AppCard(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivitiesScreen())),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              stat('EATEN', eaten),
+              stat('BURNED', burned, color: AppColors.orange),
+              stat('NET', eaten - burned),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            burned == 0 ? 'Log a run, swim or game to see calories burned.' : 'Kcal from activities and gym workouts',
+            style: AppText.muted,
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

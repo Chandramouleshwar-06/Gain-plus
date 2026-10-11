@@ -9,6 +9,8 @@ import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
+import '../activity/activities_screen.dart';
+import '../activity/activity_provider.dart';
 import '../nutrition/nutrition_provider.dart';
 import '../nutrition/nutrition_screen.dart';
 import '../plans/plans_provider.dart';
@@ -50,6 +52,8 @@ class HomeScreen extends StatelessWidget {
               _Stats(now: now),
               const SizedBox(height: 16),
               const _FoodCard(),
+              const SizedBox(height: 12),
+              const _MoveCard(),
               const SizedBox(height: 24),
               const _Goals(),
               const _RecentWorkouts(),
@@ -446,7 +450,8 @@ class WorkoutSummaryCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${DateFormat('EEE d MMM').format(workout.startedAt)} · '
-                  '${formatDuration(workout.durationSeconds)} · ${context.watch<ProfileProvider>().units.volume(workout.totalVolume)}',
+                  '${formatDuration(workout.durationSeconds)} · ${context.watch<ProfileProvider>().units.volume(workout.totalVolume)}'
+                  '${workout.kcal == null ? '' : ' · ${workout.kcal!.round()} kcal'}',
                   style: AppText.muted,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -648,6 +653,57 @@ class _FoodCard extends StatelessWidget {
             ),
           ),
           const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+/// Calories burned today, with a quick way to log an activity.
+class _MoveCard extends StatelessWidget {
+  const _MoveCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = context.watch<ActivityProvider>();
+    final today = activity.today;
+
+    return AppCard(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivitiesScreen())),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.orange.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.local_fire_department_rounded, color: AppColors.orange),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('MOVE TODAY', style: AppText.eyebrow),
+                const SizedBox(height: 2),
+                Text(
+                  activity.burnedToday == 0
+                      ? 'Runs, swims, sports and more'
+                      : '${activity.burnedToday.round()} kcal burned'
+                          '${today.isEmpty ? '' : ' · ${today.length} ${today.length == 1 ? 'activity' : 'activities'}'}',
+                  style: AppText.strong,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Log activity',
+            onPressed: () => openLogActivity(context),
+            icon: const Icon(Icons.add_circle_rounded, color: AppColors.lime, size: 30),
+          ),
         ],
       ),
     );

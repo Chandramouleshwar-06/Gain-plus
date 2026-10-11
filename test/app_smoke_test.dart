@@ -106,7 +106,40 @@ void main() {
         await settleUntil(tester, find.text('NUTRITION'));
         expect(find.byType(Dismissible), findsOneWidget, reason: 'roti logged once under breakfast');
         await settle(tester); // let the food search screen finish closing
+        expect(find.text('BURNED'), findsOneWidget);
         await tester.pageBack();
+        await settle(tester);
+
+        // Log a run from the Home card; its calories show up there.
+        await tester.dragUntilVisible(
+          find.text('MOVE TODAY'),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -250),
+        );
+        await tester.tap(find.byTooltip('Log activity'));
+        await settle(tester);
+        expect(find.text('LOG ACTIVITY'), findsOneWidget);
+        await tester.dragUntilVisible(
+          find.byKey(const Key('activity-distance')),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -200),
+        );
+        await tester.enterText(find.byKey(const Key('activity-distance')), '5');
+        await tester.pump();
+        expect(find.textContaining('per km'), findsOneWidget, reason: 'pace from 5 km in 30 min');
+        await tester.dragUntilVisible(
+          find.text('SAVE ACTIVITY'),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -250),
+        );
+        await tester.tap(find.text('SAVE ACTIVITY'));
+        await settleUntil(tester, find.textContaining('kcal burned'));
+        expect(find.textContaining('kcal burned'), findsOneWidget);
+        await tester.dragUntilVisible(
+          find.text("LET'S GO, CR"),
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, 250),
+        );
         await settle(tester);
 
         await tester.tap(find.text('Train'));

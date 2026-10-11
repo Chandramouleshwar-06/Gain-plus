@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/activity_repository.dart';
 import '../../data/builtin_foods.dart';
 import '../../data/food_repository.dart';
 import '../../models/food.dart';
@@ -9,6 +10,9 @@ class NutritionProvider extends ChangeNotifier {
   List<FoodLog> logs = [];
   List<Food> savedFoods = [];
   List<Food> recentFoods = [];
+
+  /// Calories burned on [day] (activities and gym workouts).
+  double burned = 0;
 
   static DateTime _today() {
     final now = DateTime.now();
@@ -27,6 +31,7 @@ class NutritionProvider extends ChangeNotifier {
   Future<void> load() async {
     final repo = FoodRepository.instance;
     logs = await repo.getLogs(day);
+    burned = await ActivityRepository.instance.burnedOn(day);
     savedFoods = await repo.getSavedFoods();
     recentFoods = [
       for (final (id, _) in await repo.recentFoodRefs()) ?foodById(id),

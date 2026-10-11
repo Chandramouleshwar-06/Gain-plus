@@ -315,6 +315,27 @@ class DatabaseService {
       )
     ''');
     await db.execute('CREATE INDEX idx_food_logs_date ON food_logs (date)');
+
+    // Cardio, sports and other non-gym activities. externalId is the Health
+    // Connect / HealthKit record an imported activity came from.
+    await db.execute('''
+      CREATE TABLE activities (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        startedAt INTEGER NOT NULL,
+        durationSeconds INTEGER NOT NULL,
+        distanceMeters REAL,
+        kcal REAL NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'manual',
+        externalId TEXT,
+        $syncColumnsSql
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_activities_started ON activities (startedAt)');
+
+    // Estimated calories burned in a gym workout.
+    await db.execute('ALTER TABLE workouts ADD COLUMN kcal REAL');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {

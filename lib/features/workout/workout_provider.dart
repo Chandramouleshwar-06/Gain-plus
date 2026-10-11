@@ -280,7 +280,8 @@ class WorkoutProvider extends ChangeNotifier {
 
   /// Saves the workout (completed sets only) and ends it. Throws if saving
   /// fails, in which case the workout stays active so nothing is lost.
-  Future<void> finishWorkout() async {
+  /// [estimateBurn] turns the workout length into calories burned.
+  Future<void> finishWorkout({double Function(Duration duration)? estimateBurn}) async {
     if (!isWorkoutActive || startTime == null || _isSaving) return;
 
     double totalVolume = 0;
@@ -320,6 +321,7 @@ class WorkoutProvider extends ChangeNotifier {
       startedAt: startTime!,
       durationSeconds: DateTime.now().difference(startTime!).inSeconds,
       totalVolume: totalVolume,
+      kcal: estimateBurn?.call(DateTime.now().difference(startTime!)),
       exercises: entries,
     );
 

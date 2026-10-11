@@ -96,8 +96,11 @@ class WorkoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  int get completedSetCount =>
-      exercises.fold(0, (sum, e) => sum + e.sets.where((s) => s.completed).length);
+  /// A set only counts (and is saved) when it's ticked off and has reps;
+  /// a ticked set left empty would otherwise save as 0 × 0.
+  static bool _counts(WorkoutSet s) => s.completed && s.reps > 0;
+
+  int get completedSetCount => exercises.fold(0, (sum, e) => sum + e.sets.where(_counts).length);
 
   /// Restores a workout that was in progress when the app was last closed.
   Future<void> restore() async {
@@ -220,7 +223,7 @@ class WorkoutProvider extends ChangeNotifier {
     final entries = <ExerciseEntry>[];
 
     for (var exercise in exercises) {
-      final completedSets = exercise.sets.where((s) => s.completed).toList();
+      final completedSets = exercise.sets.where(_counts).toList();
       if (completedSets.isEmpty) continue;
 
       for (var set in completedSets) {

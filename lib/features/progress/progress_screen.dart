@@ -54,8 +54,8 @@ class ProgressScreen extends StatelessWidget {
                         Expanded(
                           child: StatTile(
                             icon: Icons.trending_up_rounded,
-                            value: '${(provider.totalVolume / 1000).toStringAsFixed(1)}t',
-                            label: 'total volume',
+                            value: formatVolume(provider.totalVolume),
+                            label: 'lifted',
                           ),
                         ),
                       ],
@@ -130,11 +130,17 @@ class _LiftRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(lift.name, style: AppText.strong),
-                  Text('Est. 1RM ${formatWeight(lift.bestE1rm.roundToDouble())} kg', style: AppText.muted),
+                  Text(
+                    lift.isBodyweight ? 'Bodyweight' : 'Est. 1RM ${formatWeight(lift.bestE1rm.roundToDouble())} kg',
+                    style: AppText.muted,
+                  ),
                 ],
               ),
             ),
-            Text('${formatWeight(lift.prWeight)} × ${lift.prReps}', style: AppText.display(20, weight: FontWeight.w700)),
+            Text(
+              lift.isBodyweight ? '${lift.prReps} reps' : '${formatWeight(lift.prWeight)} kg × ${lift.prReps}',
+              style: AppText.display(20, weight: FontWeight.w700),
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
@@ -199,7 +205,7 @@ class _ThisWeekCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('${(week.volume / 1000).toStringAsFixed(1)} t',
+                  Text(formatVolume(week.volume),
                       style: AppText.display(26, color: hit ? AppColors.onLime : AppColors.text)),
                   if (change != null)
                     Text(

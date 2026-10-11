@@ -93,6 +93,23 @@ void main() {
     expect(restored.restTotalSeconds, 120);
   });
 
+  test('ticked sets with no reps are not saved', () async {
+    final provider = WorkoutProvider();
+    provider.startWorkout(null, 'Mixed', [
+      WorkoutExercise(exerciseId: 'burpees', name: 'Burpees', sets: [WorkoutSet(), WorkoutSet()]),
+    ]);
+    final burpees = provider.exercises.first;
+    provider.toggleSetComplete(burpees, 0); // ticked, left empty
+    expect(provider.completedSetCount, 0, reason: 'so finishing offers to discard');
+
+    provider.updateSet(burpees, 1, 0, 12);
+    provider.toggleSetComplete(burpees, 1);
+    await provider.finishWorkout();
+    final saved = (await WorkoutRepository.instance.getRecent()).single;
+    final details = (await WorkoutRepository.instance.getWithDetails(saved.id))!;
+    expect(details.exercises.single.sets.map((s) => s.reps), [12]);
+  });
+
   test('streak counts consecutive days ending today or yesterday', () {
     final now = DateTime(2026, 10, 6, 20);
     DateTime day(int d, [int h = 9]) => DateTime(2026, 10, d, h);

@@ -5,6 +5,7 @@ import '../../models/workout.dart';
 import '../../models/workout_plan.dart';
 import '../../navigation/nav_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/format.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
@@ -177,7 +178,38 @@ class _TodayCard extends StatelessWidget {
       );
     }
 
-    final todayPlan = plans.planForDate(DateTime.now());
+    final now = DateTime.now();
+    final trainedToday =
+        context.watch<ProgressProvider>().workoutDays.contains(DateTime(now.year, now.month, now.day));
+    if (trainedToday) {
+      return AppCard(
+        padding: const EdgeInsets.all(20),
+        radius: AppRadius.hero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TODAY', style: AppText.eyebrow),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: Text('WORKOUT DONE', style: AppText.display(40))),
+                const Icon(Icons.check_circle_rounded, color: AppColors.lime, size: 36),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text('Nice work. Rest up, or train again if you have more in the tank.', style: AppText.muted),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              text: 'Train again',
+              variant: ButtonVariant.secondary,
+              onPressed: () => _showPlanPicker(context, plans.plans),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final todayPlan = plans.planForDate(now);
     if (todayPlan != null) {
       return _LimeCard(
         eyebrow: "TODAY'S SESSION",
@@ -303,7 +335,6 @@ class _Stats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = context.watch<ProgressProvider>();
-    final tonnes = progress.totalVolume / 1000;
     return Row(
       children: [
         Expanded(
@@ -326,8 +357,8 @@ class _Stats extends StatelessWidget {
         Expanded(
           child: StatTile(
             icon: Icons.trending_up_rounded,
-            value: tonnes >= 1 ? '${tonnes.toStringAsFixed(1)}t' : '${progress.totalVolume.toStringAsFixed(0)}kg',
-            label: 'total volume',
+            value: formatVolume(progress.totalVolume),
+            label: 'lifted',
           ),
         ),
       ],
@@ -397,7 +428,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${DateFormat('EEE d MMM').format(workout.startedAt)} · '
-                  '${workout.durationMinutes} min · ${workout.totalVolume.toStringAsFixed(0)} kg',
+                  '${formatDuration(workout.durationSeconds)} · ${formatVolume(workout.totalVolume)}',
                   style: AppText.muted,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

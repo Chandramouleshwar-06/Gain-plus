@@ -12,6 +12,9 @@ class LiftSummary {
   final double bestE1rm;
 
   LiftSummary(this.exerciseId, this.name, this.prWeight, this.prReps, this.bestE1rm);
+
+  /// Done without added weight (push ups, burpees): best reps is what counts.
+  bool get isBodyweight => prWeight == 0;
 }
 
 class PersonalRecord {
@@ -109,6 +112,7 @@ class ProgressProvider extends ChangeNotifier {
   static List<LiftSummary> calculateLiftSummaries(List<SetRecord> sets) {
     final byId = <String, LiftSummary>{};
     for (final s in sets) {
+      if (s.reps <= 0) continue; // empty sets saved by older versions
       final e1rm = estimateOneRepMax(s.weight, s.reps);
       final current = byId[s.exerciseId];
       if (current == null) {

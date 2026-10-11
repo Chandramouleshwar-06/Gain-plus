@@ -45,7 +45,7 @@ class WorkoutDetailScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: StatTile(icon: Icons.timer_outlined, value: '${workout.durationMinutes}', label: 'minutes')),
+                  Expanded(child: StatTile(icon: Icons.timer_outlined, value: formatDuration(workout.durationSeconds), label: 'duration')),
                   const SizedBox(width: 10),
                   Expanded(
                     child: StatTile(

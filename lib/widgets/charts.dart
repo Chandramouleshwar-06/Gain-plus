@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -17,7 +18,10 @@ class VolumeBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxY = weeks.fold(0.0, (m, w) => w.$2 > m ? w.$2 : m);
+    final peak = weeks.fold(0.0, (m, w) => w.$2 > m ? w.$2 : m);
+    // Round axis steps (e.g. 250, 500, 1k) with room above the tallest bar.
+    final interval = niceInterval(peak == 0 ? 1000 : peak / 3);
+    final maxY = (peak / interval).floor() * interval + interval;
     return Semantics(
       label: 'Weekly volume for the last ${weeks.length} weeks. '
           'This week: ${weeks.isEmpty ? 0 : weeks.last.$2.toStringAsFixed(0)} kg.',
@@ -25,12 +29,12 @@ class VolumeBarChart extends StatelessWidget {
         height: 180,
         child: BarChart(
           BarChartData(
-            maxY: maxY == 0 ? 1000 : maxY * 1.15,
+            maxY: maxY,
             alignment: BarChartAlignment.spaceAround,
             borderData: FlBorderData(show: false),
             gridData: FlGridData(
               drawVerticalLine: false,
-              horizontalInterval: maxY == 0 ? 500 : (maxY * 1.15) / 3,
+              horizontalInterval: interval,
               getDrawingHorizontalLine: (_) => const FlLine(color: _gridColor, strokeWidth: 1),
             ),
             titlesData: FlTitlesData(
@@ -40,7 +44,7 @@ class VolumeBarChart extends StatelessWidget {
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 36,
-                  interval: maxY == 0 ? 500 : (maxY * 1.15) / 3,
+                  interval: interval,
                   getTitlesWidget: (value, meta) => value == meta.max
                       ? const SizedBox.shrink()
                       : Text(compactNumber(value), style: _axisLabel),
@@ -66,6 +70,8 @@ class VolumeBarChart extends StatelessWidget {
             ),
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
+                fitInsideVertically: true,
+                fitInsideHorizontally: true,
                 getTooltipColor: (_) => AppColors.surfaceHigh,
                 tooltipBorderRadius: BorderRadius.circular(10),
                 getTooltipItem: (group, _, rod, _) => BarTooltipItem(
@@ -90,6 +96,8 @@ class VolumeBarChart extends StatelessWidget {
                       width: 18,
                       color: i == weeks.length - 1 ? AppColors.lime : AppColors.lime.withValues(alpha: 0.55),
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      // Faint full-height track so empty weeks still read as weeks.
+                      backDrawRodData: BackgroundBarChartRodData(show: true, toY: maxY, color: const Color(0xFF1C1C1F)),
                     ),
                   ],
                 ),
@@ -177,6 +185,8 @@ class TrendLineChart extends StatelessWidget {
                   ),
               ],
               touchTooltipData: LineTouchTooltipData(
+                fitInsideVertically: true,
+                fitInsideHorizontally: true,
                 getTooltipColor: (_) => AppColors.surfaceHigh,
                 tooltipBorderRadius: BorderRadius.circular(10),
                 getTooltipItems: (spots) => [
@@ -217,4 +227,14 @@ class TrendLineChart extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A round axis step at or above [rough]: 1, 2, 2.5 or 5 times a power of 10.
+double niceInterval(double rough) {
+  if (rough <= 0) return 1;
+  final magnitude = pow(10, (log(rough) / ln10).floor()).toDouble();
+  for (final step in [1.0, 2.0, 2.5, 5.0, 10.0]) {
+    if (step * magnitude >= rough) return step * magnitude;
+  }
+  return 10 * magnitude;
 }

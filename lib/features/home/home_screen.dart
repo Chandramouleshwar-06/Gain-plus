@@ -11,6 +11,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../activity/activities_screen.dart';
 import '../activity/activity_provider.dart';
+import '../health/health_screen.dart';
 import '../nutrition/nutrition_provider.dart';
 import '../nutrition/nutrition_screen.dart';
 import '../plans/plans_provider.dart';
@@ -37,6 +38,7 @@ class HomeScreen extends StatelessWidget {
             await Future.wait([
               context.read<ProgressProvider>().loadData(),
               context.read<PlansProvider>().loadPlans(),
+              syncHealth(context),
             ]);
           },
           child: ListView(
@@ -54,6 +56,7 @@ class HomeScreen extends StatelessWidget {
               const _FoodCard(),
               const SizedBox(height: 12),
               const _MoveCard(),
+              const HealthTodayCard(),
               const SizedBox(height: 24),
               const _Goals(),
               const _RecentWorkouts(),

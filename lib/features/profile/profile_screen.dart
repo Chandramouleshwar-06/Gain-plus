@@ -12,6 +12,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/ui.dart';
 import '../plans/plans_screen.dart';
 import '../account/account_card.dart';
+import '../health/health_screen.dart';
 import '../progress/achievements_view.dart';
 import '../progress/progress_provider.dart';
 import '../settings/settings_card.dart';
@@ -51,6 +52,8 @@ class ProfileScreen extends StatelessWidget {
                   _IdentityCard(profile: p),
                   const SizedBox(height: 12),
                   const AccountCard(),
+                  const SizedBox(height: 12),
+                  const HealthLinkTile(),
                   const SizedBox(height: 12),
                   AppCard(
                     onTap: () => _showEditTarget(context, p),

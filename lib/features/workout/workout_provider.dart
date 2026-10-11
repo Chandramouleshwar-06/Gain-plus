@@ -280,9 +280,10 @@ class WorkoutProvider extends ChangeNotifier {
 
   /// Saves the workout (completed sets only) and ends it. Throws if saving
   /// fails, in which case the workout stays active so nothing is lost.
+  /// Returns the saved workout.
   /// [estimateBurn] turns the workout length into calories burned.
-  Future<void> finishWorkout({double Function(Duration duration)? estimateBurn}) async {
-    if (!isWorkoutActive || startTime == null || _isSaving) return;
+  Future<Workout?> finishWorkout({double Function(Duration duration)? estimateBurn}) async {
+    if (!isWorkoutActive || startTime == null || _isSaving) return null;
 
     double totalVolume = 0;
     final entries = <ExerciseEntry>[];
@@ -329,6 +330,7 @@ class WorkoutProvider extends ChangeNotifier {
     try {
       await WorkoutRepository.instance.save(workout);
       await _reset();
+      return workout;
     } finally {
       _isSaving = false;
     }

@@ -40,6 +40,7 @@ const activityTypes = [
   ActivityType('basketball', 'Basketball', Icons.sports_basketball_rounded, 6.5),
   ActivityType('tennis', 'Tennis', Icons.sports_tennis_rounded, 7.3),
   ActivityType('dancing', 'Dancing', Icons.music_note_rounded, 5.0),
+  ActivityType('strength', 'Weight training', Icons.fitness_center_rounded, 3.5),
   ActivityType('other', 'Other', Icons.bolt_rounded, 5.0),
 ];
 

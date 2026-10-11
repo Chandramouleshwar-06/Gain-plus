@@ -182,6 +182,17 @@ void main() {
         await settle(tester);
         await tester.tap(find.text('Profile'));
         await settle(tester);
+        // Health: tests run off-device, so it shows as not available here.
+        await tester.dragUntilVisible(
+          find.text('Health Connect'),
+          find.byType(ListView).first,
+          const Offset(0, -200),
+        );
+        await tester.tap(find.text('Health Connect'));
+        await settle(tester);
+        expect(find.text('HEALTH APPS'), findsOneWidget);
+        await tester.pageBack();
+        await settle(tester);
         await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
         await settle(tester);
         await tester.tap(find.text('Notifications'));

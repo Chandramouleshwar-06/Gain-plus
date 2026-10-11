@@ -1,5 +1,7 @@
 package com.tracker1.gainplus
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity: Health Connect asks for permissions through
+// registerForActivityResult, which needs a ComponentActivity.
+class MainActivity : FlutterFragmentActivity()

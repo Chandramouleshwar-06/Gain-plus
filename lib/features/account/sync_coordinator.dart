@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../sync/sync_engine.dart';
 import '../activity/activity_provider.dart';
 import '../exercise/exercise_provider.dart';
+import '../health/health_screen.dart';
 import '../nutrition/nutrition_provider.dart';
 import '../plans/plans_provider.dart';
 import '../plans/programs_provider.dart';
@@ -39,6 +40,10 @@ class _SyncCoordinatorState extends State<SyncCoordinator> with WidgetsBindingOb
     _wasSignedIn = _account.signedIn;
     _account.onDataPulled = _reloadAll;
     WidgetsBinding.instance.addObserver(this);
+    // Steps, sleep and new workouts from Health Connect, if connected.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) syncHealth(context);
+    });
     if (_account.available) {
       try {
         _connectivity = Connectivity().onConnectivityChanged.listen((results) {
@@ -62,7 +67,10 @@ class _SyncCoordinatorState extends State<SyncCoordinator> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _syncSoon(const Duration(seconds: 1));
+    if (state == AppLifecycleState.resumed) {
+      _syncSoon(const Duration(seconds: 1));
+      syncHealth(context);
+    }
   }
 
   void _syncSoon(Duration delay, {bool onlyIfPending = false}) {

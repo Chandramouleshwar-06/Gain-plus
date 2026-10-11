@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/activity_types.dart';
 import '../activity/activity_provider.dart';
+import '../health/health_provider.dart';
 import '../nutrition/nutrition_provider.dart';
 import '../../models/exercise.dart';
 import '../../models/workout.dart';
@@ -181,11 +182,13 @@ class _Header extends StatelessWidget {
     final profile = context.read<ProfileProvider>();
     final activity = context.read<ActivityProvider>();
     final nutrition = context.read<NutritionProvider>();
+    final health = context.read<HealthProvider>();
     try {
       final body = bodyMetricsOf(profile);
-      await provider.finishWorkout(
+      final saved = await provider.finishWorkout(
         estimateBurn: (duration) => estimateKcal(met: strengthTrainingMet, body: body, duration: duration),
       );
+      if (saved != null) unawaited(health.exportWorkout(saved));
     } catch (e) {
       debugPrint('Failed to save workout: $e');
       messenger.showSnackBar(

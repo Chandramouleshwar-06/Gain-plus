@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import '../../data/sync_columns.dart';
 import '../../models/activity.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
+import '../health/health_provider.dart';
 import '../profile/profile_provider.dart';
 import 'activity_provider.dart';
 
@@ -98,7 +100,10 @@ class _LogActivityScreenState extends State<LogActivityScreen> {
     setState(() => _saving = true);
     final navigator = Navigator.of(context);
     try {
+      final health = context.read<HealthProvider>();
       await context.read<ActivityProvider>().save(activity);
+      // New activities go to Health Connect too (edits would duplicate them).
+      if (widget.existing == null) unawaited(health.exportActivity(activity));
       navigator.pop(true);
     } catch (e) {
       debugPrint('Could not save activity: $e');
